@@ -136,11 +136,12 @@ public class VertexSearchService {
             String gcsUri  = extractStringField(fields, "uri",
                     extractStringField(fields, "gcs_uri", doc.getName()));
             
-            // Try to get title from structured metadata, fall back to extracting from GCS URI
-            String title   = extractStringField(fields, "title",
-                    extractStringField(fields, "name", null));
-            if (title == null || title.isEmpty() || title.equals(doc.getId())) {
-                title = extractTitleFromGcsUri(gcsUri);
+            // Extract title from structured metadata only (never use filename)
+            String title = extractStringField(fields, "title",
+                    extractStringField(fields, "name", "Untitled Job"));
+            // If title is empty or just the document ID, use "Untitled Job"
+            if (title.isEmpty() || title.equals(doc.getId())) {
+                title = "Untitled Job";
             }
             
             String snippet = extractSnippet(result);
@@ -162,39 +163,6 @@ public class VertexSearchService {
             return v.getStringValue();
         }
         return defaultValue;
-    }
-
-    /**
-     * Extracts a human-readable title from a GCS URI by taking the filename
-     * (without extension) and replacing underscores with spaces.
-     *
-     * @param gcsUri the GCS URI, e.g. {@code gs://bucket/jobs/Lead_Java_Backend_Engineer.pdf}
-     * @return a human-readable title, or "Untitled Job" if extraction fails
-     */
-    private String extractTitleFromGcsUri(String gcsUri) {
-        if (gcsUri == null || gcsUri.isEmpty()) {
-            return "Untitled Job";
-        }
-
-        // Extract filename from GCS URI (e.g., "gs://bucket/jobs/Lead_Java_Backend_Engineer.pdf")
-        String filename = gcsUri;
-        int lastSlash = gcsUri.lastIndexOf('/');
-        if (lastSlash >= 0 && lastSlash < gcsUri.length() - 1) {
-            filename = gcsUri.substring(lastSlash + 1);
-        }
-
-        // Remove .pdf extension (currently only PDFs are supported for job uploads)
-        if (filename.toLowerCase().endsWith(".pdf")) {
-            filename = filename.substring(0, filename.length() - 4);
-        }
-
-        // Replace underscores with spaces for better readability
-        // Also replace multiple spaces with single space
-        String title = filename.replaceAll("_", " ")
-                               .replaceAll("\\s+", " ")
-                               .trim();
-
-        return title.isEmpty() ? "Untitled Job" : title;
     }
 
     private String extractSnippet(SearchResponse.SearchResult result) {

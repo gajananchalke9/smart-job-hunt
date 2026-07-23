@@ -8,7 +8,7 @@ public class JobSearchResult {
     /** Vertex AI Search document ID. */
     private String documentId;
 
-    /** Job title extracted from the document metadata or filename. */
+    /** Job title extracted from the document metadata or PDF content. */
     private String title;
 
     /** Short snippet / summary from the search result. */

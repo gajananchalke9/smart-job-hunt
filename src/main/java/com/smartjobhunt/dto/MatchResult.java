@@ -12,7 +12,7 @@ public class MatchResult {
     /** Vertex AI Search document ID of the matched job. */
     private String documentId;
 
-    /** Job title (from metadata or filename). */
+    /** Job title extracted from metadata or PDF content. */
     private String title;
 
     /** GCS URI of the job description PDF. */
