@@ -1,7 +1,8 @@
-<<<<<<< HEAD
 # Smart Job Hunt 🎯
 
 A **Java 17 + Spring Boot 3** backend that lets you store job-profile-description PDFs, search them via natural-language prompts, and match a candidate resume against every indexed job — with an explainable AI score powered by **Google Gemini**.
+
+Also includes a **Python utility module** for local job profile management, keyword-based search, and term-overlap scoring.
 
 ---
 
@@ -261,21 +262,15 @@ All errors are returned as a JSON object:
 
 ---
 
-## License
+## Python Utility Module
 
-MIT
-=======
-# smart-job-hunt
+The `smart_job_hunt` package provides a lightweight local datastore for job profile PDFs with keyword-based search and term-overlap scoring — useful for development and testing without GCP connectivity.
 
-Python datastore for job profile PDFs with search and resume-based scoring.
-
-## Features
+### Features
 - Store job profile PDF metadata in a local JSON datastore
 - Optional upload of job profile PDFs to Google Cloud Storage (GCS)
 - Optional Vertex AI Search integration hook for prompt-based retrieval
 - Score job profiles against a resume using term-overlap relevance scoring
-
-## Usage
 
 ### Add a job profile
 ```bash
@@ -303,8 +298,13 @@ ds = JobProfileDatastore(datastore_path="data/job_profiles.json")
 # Search and score with search_jobs(prompt, resume_text)
 ```
 
-## Tests
+### Python Tests
 ```bash
 python -m unittest discover -s tests -p 'test_*.py'
 ```
->>>>>>> origin/main
+
+---
+
+## License
+
+MIT
