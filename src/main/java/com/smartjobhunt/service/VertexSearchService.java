@@ -60,25 +60,28 @@ public class VertexSearchService {
     // ─────────────────────────────────────────────────────────────
 
     /**
-     * Imports a single PDF from GCS into the Vertex AI Search datastore.
+     * Imports a JSONL file with structured data from GCS into the Vertex AI Search datastore.
      *
      * <p>The import is triggered asynchronously; this method waits for the
      * long-running operation to complete before returning.
      *
-     * @param gcsUri the GCS URI of the PDF, e.g. {@code gs://bucket/jobs/foo.pdf}
+     * <p>The JSONL file should contain structured metadata including title, job_id, company, etc.,
+     * as well as a content reference to the PDF file.
+     *
+     * @param jsonlGcsUri the GCS URI of the JSONL metadata file, e.g. {@code gs://bucket/jobs/foo.jsonl}
      * @throws InterruptedException if the thread is interrupted while waiting
      * @throws ExecutionException   if the import operation fails
      */
-    public void importDocument(String gcsUri)
+    public void importDocument(String jsonlGcsUri)
             throws InterruptedException, ExecutionException {
 
         // Build the branch resource name where documents are stored
         String branchName = BranchName.of(projectId, location, datastoreId, "default_branch").toString();
 
-        // GCS source pointing at the specific PDF
+        // GCS source pointing at the JSONL metadata file
         GcsSource gcsSource = GcsSource.newBuilder()
-                .addInputUris(gcsUri)
-                .setDataSchema("content")   // unstructured / content schema for PDFs
+                .addInputUris(jsonlGcsUri)
+                .setDataSchema("custom")   // custom schema for structured JSONL data
                 .build();
 
         ImportDocumentsRequest request = ImportDocumentsRequest.newBuilder()
@@ -94,7 +97,7 @@ public class VertexSearchService {
         // Log any per-document errors (non-fatal – the overall import still succeeded)
         if (response.getErrorSamplesCount() > 0) {
             response.getErrorSamplesList().forEach(e ->
-                    log.warn("[VertexSearchService] import warning for {}: {}", gcsUri, e.getMessage()));
+                    log.warn("[VertexSearchService] import warning for {}: {}", jsonlGcsUri, e.getMessage()));
         }
     }
 

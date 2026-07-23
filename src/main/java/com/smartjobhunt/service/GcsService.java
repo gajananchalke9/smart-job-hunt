@@ -1,13 +1,18 @@
 package com.smartjobhunt.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
+import com.smartjobhunt.dto.JobMetadata;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -22,11 +27,13 @@ public class GcsService {
 
     private final Storage storage;
     private final String bucketName;
+    private final ObjectMapper objectMapper;
 
     public GcsService(Storage storage,
                       @Value("${gcp.gcs.bucket}") String bucketName) {
         this.storage = storage;
         this.bucketName = bucketName;
+        this.objectMapper = new ObjectMapper();
     }
 
     /**
@@ -53,6 +60,105 @@ public class GcsService {
                 .build();
 
         storage.create(blobInfo, file.getBytes());
+
+        return "gs://" + bucketName + "/" + objectName;
+    }
+
+    /**
+     * Uploads a job with both PDF and metadata JSONL file to GCS.
+     * Creates a JSONL file containing structured metadata for Vertex AI Search.
+     *
+     * @param file     the multipart PDF file to upload
+     * @param metadata structured metadata for the job (title, job_id, company, etc.)
+     * @return the GCS URI of the JSONL metadata file (to be imported into Vertex AI Search)
+     * @throws IOException if reading the file bytes fails or JSON serialization fails
+     */
+    public String uploadJobWithMetadata(MultipartFile file, JobMetadata metadata) throws IOException {
+        // Generate a unique document ID
+        String documentId = UUID.randomUUID().toString();
+        
+        // Sanitise the original filename for the PDF
+        String originalFilename = file.getOriginalFilename();
+        String safeName = (originalFilename != null && !originalFilename.isBlank())
+                ? sanitiseFilename(originalFilename)
+                : documentId + ".pdf";
+        
+        // Upload the PDF to GCS
+        String pdfObjectName = "jobs/" + safeName;
+        String pdfGcsUri = uploadFile(file.getBytes(), pdfObjectName, "application/pdf");
+        
+        // Create JSONL metadata
+        String jsonlContent = createJsonlMetadata(documentId, metadata, pdfGcsUri);
+        
+        // Upload JSONL metadata file
+        String jsonlObjectName = "jobs/" + safeName.replace(".pdf", ".jsonl");
+        String jsonlGcsUri = uploadFile(
+            jsonlContent.getBytes(StandardCharsets.UTF_8),
+            jsonlObjectName,
+            "application/jsonl"
+        );
+        
+        return jsonlGcsUri;
+    }
+
+    /**
+     * Creates a JSONL line with structured metadata for Vertex AI Search.
+     * Format matches the example provided in the problem statement.
+     *
+     * @param documentId unique document identifier
+     * @param metadata   job metadata
+     * @param pdfGcsUri  GCS URI of the uploaded PDF
+     * @return JSONL formatted string
+     * @throws IOException if JSON serialization fails
+     */
+    private String createJsonlMetadata(String documentId, JobMetadata metadata, String pdfGcsUri)
+            throws IOException {
+        Map<String, Object> jsonlEntry = new HashMap<>();
+        jsonlEntry.put("id", documentId);
+        
+        // Structured data for search and display
+        Map<String, Object> structData = new HashMap<>();
+        structData.put("title", metadata.getTitle());
+        structData.put("job_id", metadata.getJobId());
+        structData.put("company", metadata.getCompany());
+        if (metadata.getLocations() != null && !metadata.getLocations().isEmpty()) {
+            structData.put("locations", metadata.getLocations());
+        }
+        if (metadata.getPostedDate() != null && !metadata.getPostedDate().isBlank()) {
+            structData.put("posted_date", metadata.getPostedDate());
+        }
+        if (metadata.getDuration() != null && !metadata.getDuration().isBlank()) {
+            structData.put("duration", metadata.getDuration());
+        }
+        if (metadata.getDescription() != null && !metadata.getDescription().isBlank()) {
+            structData.put("description", metadata.getDescription());
+        }
+        jsonlEntry.put("structData", structData);
+        
+        // Content reference to the PDF
+        Map<String, Object> content = new HashMap<>();
+        content.put("mimeType", "application/pdf");
+        content.put("uri", pdfGcsUri);
+        jsonlEntry.put("content", content);
+        
+        return objectMapper.writeValueAsString(jsonlEntry);
+    }
+
+    /**
+     * Uploads raw bytes to GCS.
+     *
+     * @param data        the bytes to upload
+     * @param objectName  the object name in the bucket
+     * @param contentType the MIME type
+     * @return the GCS URI
+     */
+    private String uploadFile(byte[] data, String objectName, String contentType) {
+        BlobId blobId = BlobId.of(bucketName, objectName);
+        BlobInfo blobInfo = BlobInfo.newBuilder(blobId)
+                .setContentType(contentType)
+                .build();
+
+        storage.create(blobInfo, data);
 
         return "gs://" + bucketName + "/" + objectName;
     }
