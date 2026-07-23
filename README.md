@@ -140,21 +140,72 @@ The Swagger UI provides an interactive interface to:
 
 **`POST /api/jobs/upload`**
 
-Uploads a job-description PDF to GCS and imports it into the Vertex AI Search datastore for indexing.
+Uploads a job-description PDF to GCS along with structured metadata and imports it into the Vertex AI Search datastore for indexing.
+
+**With metadata (recommended):**
+
+```bash
+curl -X POST http://localhost:8080/api/jobs/upload \
+  -F "file=@/path/to/job-description.pdf" \
+  -F 'metadata={
+    "jobId": "R0357981",
+    "title": "Apprentice Hiring for 2026-2027",
+    "company": "Deutsche Bank",
+    "locations": ["Mumbai", "Pune", "Jaipur", "Bangalore", "New Delhi"],
+    "postedDate": "2026-07-17",
+    "duration": "12 months",
+    "description": "Exciting opportunity for fresh graduates to join our apprenticeship program."
+  }'
+```
+
+**Without metadata (AI extraction):**
 
 ```bash
 curl -X POST http://localhost:8080/api/jobs/upload \
   -F "file=@/path/to/job-description.pdf"
 ```
 
+When metadata is not provided, the system will:
+1. Extract text content from the PDF
+2. Use AI (Gemini) to analyze the content and extract structured metadata
+3. Automatically generate title, company, job ID, locations, and other fields based on the PDF content
+
+This ensures meaningful metadata is created from the actual job description, not just the filename.
+
 **Response:**
 ```json
 {
   "documentId": "550e8400-e29b-41d4-a716-446655440000",
-  "gcsUri": "gs://your-bucket/jobs/job-description.pdf",
-  "message": "Job uploaded and indexed successfully."
+  "gcsUri": "gs://your-bucket/jobs/job-description.jsonl",
+  "message": "Job uploaded and indexed successfully with metadata."
 }
 ```
+
+**How it works:**
+
+1. The PDF is uploaded to GCS with a unique UUID-based filename (e.g., `gs://bucket/jobs/550e8400-e29b-41d4-a716-446655440000.pdf`)
+2. If metadata is not provided, the system extracts it from the PDF content using AI
+3. A JSONL metadata file is created with the structured data:
+   ```json
+   {
+     "id": "550e8400-e29b-41d4-a716-446655440000",
+     "structData": {
+       "title": "Apprentice Hiring for 2026-2027",
+       "job_id": "R0357981",
+       "company": "Deutsche Bank",
+       "locations": ["Mumbai", "Pune", "Jaipur", "Bangalore", "New Delhi"],
+       "posted_date": "2026-07-17",
+       "duration": "12 months",
+       "description": "Exciting opportunity..."
+     },
+     "content": {
+       "mimeType": "application/pdf",
+       "uri": "gs://bucket/jobs/550e8400-e29b-41d4-a716-446655440000.pdf"
+     }
+   }
+   ```
+4. The JSONL file is uploaded to GCS (e.g., `gs://bucket/jobs/550e8400-e29b-41d4-a716-446655440000.jsonl`)
+5. The JSONL is imported into Vertex AI Search, which indexes both the structured metadata and the PDF content
 
 ---
 
@@ -175,13 +226,15 @@ curl -X POST http://localhost:8080/api/jobs/search \
 [
   {
     "documentId": "abc123",
-    "title": "Senior Backend Engineer",
-    "snippet": "We are looking for a senior engineer with 5+ years of Kubernetes...",
-    "gcsUri": "gs://your-bucket/jobs/senior-backend.pdf",
+    "title": "Apprentice Hiring for 2026-2027",
+    "snippet": "Exciting opportunity for fresh graduates to join our apprenticeship program...",
+    "gcsUri": "gs://your-bucket/jobs/apprentice-hiring.pdf",
     "relevanceScore": 0.0
   }
 ]
 ```
+
+The search results now include proper titles from the structured metadata instead of document IDs.
 
 ---
 

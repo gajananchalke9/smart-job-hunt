@@ -1,5 +1,6 @@
 package com.smartjobhunt.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.cloud.discoveryengine.v1.DocumentServiceClient;
 import com.google.cloud.discoveryengine.v1.DocumentServiceSettings;
 import com.google.cloud.discoveryengine.v1.SearchServiceClient;
@@ -90,6 +91,19 @@ public class GcpConfig {
     @Bean
     public VertexAI vertexAI() {
         return new VertexAI(projectId, vertexAiLocation);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Jackson ObjectMapper
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Shared ObjectMapper bean for JSON serialization/deserialization.
+     * Ensures consistent JSON processing across the application.
+     */
+    @Bean
+    public ObjectMapper objectMapper() {
+        return new ObjectMapper();
     }
 
     // ─────────────────────────────────────────────────────────────

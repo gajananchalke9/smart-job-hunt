@@ -13,9 +13,9 @@ public class JobSearchResult {
     /** Vertex AI Search document ID. */
     private String documentId;
 
-    @Schema(description = "Job title extracted from document metadata or filename", 
+    @Schema(description = "Job title extracted from document metadata or PDF content", 
             example = "Backend Engineer - Remote")
-    /** Job title extracted from the document metadata or filename. */
+    /** Job title extracted from the document metadata or PDF content. */
     private String title;
 
     @Schema(description = "Short snippet/summary from the search result", 

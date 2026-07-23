@@ -17,9 +17,9 @@ public class MatchResult {
     /** Vertex AI Search document ID of the matched job. */
     private String documentId;
 
-    @Schema(description = "Job title extracted from metadata or filename", 
+    @Schema(description = "Job title extracted from metadata or PDF content", 
             example = "Senior Java Developer")
-    /** Job title (from metadata or filename). */
+    /** Job title extracted from metadata or PDF content. */
     private String title;
 
     @Schema(description = "GCS URI of the job description PDF", 
