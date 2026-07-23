@@ -30,10 +30,27 @@ public class GcsService {
     private final ObjectMapper objectMapper;
 
     public GcsService(Storage storage,
-                      @Value("${gcp.gcs.bucket}") String bucketName) {
+                      @Value("${gcp.gcs.bucket}") String bucketName,
+                      ObjectMapper objectMapper) {
         this.storage = storage;
         this.bucketName = bucketName;
-        this.objectMapper = new ObjectMapper();
+        this.objectMapper = objectMapper;
+    }
+
+    /**
+     * Result of uploading a job with metadata.
+     */
+    public static class UploadResult {
+        private final String documentId;
+        private final String jsonlGcsUri;
+
+        public UploadResult(String documentId, String jsonlGcsUri) {
+            this.documentId = documentId;
+            this.jsonlGcsUri = jsonlGcsUri;
+        }
+
+        public String getDocumentId() { return documentId; }
+        public String getJsonlGcsUri() { return jsonlGcsUri; }
     }
 
     /**
@@ -70,10 +87,10 @@ public class GcsService {
      *
      * @param file     the multipart PDF file to upload
      * @param metadata structured metadata for the job (title, job_id, company, etc.)
-     * @return the GCS URI of the JSONL metadata file (to be imported into Vertex AI Search)
+     * @return UploadResult containing the document ID and JSONL GCS URI
      * @throws IOException if reading the file bytes fails or JSON serialization fails
      */
-    public String uploadJobWithMetadata(MultipartFile file, JobMetadata metadata) throws IOException {
+    public UploadResult uploadJobWithMetadata(MultipartFile file, JobMetadata metadata) throws IOException {
         // Generate a unique document ID
         String documentId = UUID.randomUUID().toString();
         
@@ -98,7 +115,7 @@ public class GcsService {
             "application/jsonl"
         );
         
-        return jsonlGcsUri;
+        return new UploadResult(documentId, jsonlGcsUri);
     }
 
     /**

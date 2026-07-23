@@ -36,10 +36,12 @@ public class JobController {
     private final VertexSearchService vertexSearchService;
     private final ObjectMapper objectMapper;
 
-    public JobController(GcsService gcsService, VertexSearchService vertexSearchService) {
+    public JobController(GcsService gcsService,
+                        VertexSearchService vertexSearchService,
+                        ObjectMapper objectMapper) {
         this.gcsService = gcsService;
         this.vertexSearchService = vertexSearchService;
-        this.objectMapper = new ObjectMapper();
+        this.objectMapper = objectMapper;
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -71,17 +73,14 @@ public class JobController {
         JobMetadata jobMetadata = parseOrCreateMetadata(metadata, file.getOriginalFilename());
 
         // 1) Upload PDF and create JSONL metadata to GCS
-        String jsonlGcsUri = gcsService.uploadJobWithMetadata(file, jobMetadata);
+        GcsService.UploadResult result = gcsService.uploadJobWithMetadata(file, jobMetadata);
 
         // 2) Import JSONL metadata into Vertex AI Search (async LRO – waits for completion)
-        vertexSearchService.importDocument(jsonlGcsUri);
-
-        // Extract document ID from the JSONL GCS URI (filename without extension)
-        String documentId = extractDocumentIdFromUri(jsonlGcsUri);
+        vertexSearchService.importDocument(result.getJsonlGcsUri());
 
         return ResponseEntity.ok(new JobUploadResponse(
-                documentId,
-                jsonlGcsUri,
+                result.getDocumentId(),
+                result.getJsonlGcsUri(),
                 "Job uploaded and indexed successfully with metadata."));
     }
 
@@ -103,25 +102,6 @@ public class JobController {
         defaultMetadata.setCompany("N/A");
         defaultMetadata.setLocations(List.of());
         return defaultMetadata;
-    }
-
-    /**
-     * Extracts a document ID from the JSONL GCS URI.
-     * For example: gs://bucket/jobs/foo.jsonl -> foo
-     */
-    private String extractDocumentIdFromUri(String gcsUri) {
-        if (gcsUri == null || gcsUri.isEmpty()) {
-            return "unknown";
-        }
-        String filename = gcsUri;
-        int lastSlash = gcsUri.lastIndexOf('/');
-        if (lastSlash >= 0 && lastSlash < gcsUri.length() - 1) {
-            filename = gcsUri.substring(lastSlash + 1);
-        }
-        if (filename.toLowerCase().endsWith(".jsonl")) {
-            filename = filename.substring(0, filename.length() - 6);
-        }
-        return filename;
     }
 
     // ─────────────────────────────────────────────────────────────
