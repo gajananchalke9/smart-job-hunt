@@ -16,6 +16,7 @@ Resume PDF ──▶ PDFBox text extraction ──▶ Vertex AI Search retrieval
 | Layer | Technology |
 |-------|-----------|
 | REST API | Spring Boot 3 (Spring Web) |
+| API Documentation | SpringDoc OpenAPI (Swagger) |
 | Storage | Google Cloud Storage (GCS) |
 | Search / Retrieval | Vertex AI Search (Discovery Engine) |
 | Scoring / Reasoning | Gemini 1.5 Flash via Vertex AI |
@@ -116,6 +117,20 @@ java -jar target/smart-job-hunt-1.0.0-SNAPSHOT.jar
 ```
 
 The server starts on **http://localhost:8080**.
+
+### API Documentation (Swagger)
+
+Once the application is running, you can explore the API documentation:
+
+- **Swagger UI**: http://localhost:8080/swagger-ui.html
+- **OpenAPI Spec (JSON)**: http://localhost:8080/v3/api-docs
+- **OpenAPI Spec (YAML)**: http://localhost:8080/v3/api-docs.yaml
+
+The Swagger UI provides an interactive interface to:
+- View all available endpoints with detailed descriptions
+- See request/response schemas
+- Try out API calls directly from the browser
+- Download the OpenAPI specification
 
 ---
 
@@ -220,7 +235,8 @@ curl -X POST http://localhost:8080/api/match \
 src/main/java/com/smartjobhunt/
 ├── SmartJobHuntApplication.java     # Spring Boot entry point
 ├── config/
-│   └── GcpConfig.java               # GCP client Spring beans (Storage, DiscoveryEngine, VertexAI)
+│   ├── GcpConfig.java               # GCP client Spring beans (Storage, DiscoveryEngine, VertexAI)
+│   └── OpenApiConfig.java           # Swagger/OpenAPI configuration
 ├── controller/
 │   ├── JobController.java           # POST /api/jobs/upload, POST /api/jobs/search
 │   └── MatchController.java         # POST /api/match
