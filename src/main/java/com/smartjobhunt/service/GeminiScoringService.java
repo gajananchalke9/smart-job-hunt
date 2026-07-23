@@ -7,6 +7,8 @@ import com.google.cloud.vertexai.generativeai.GenerativeModel;
 import com.google.cloud.vertexai.generativeai.ResponseHandler;
 import com.smartjobhunt.dto.JobSearchResult;
 import com.smartjobhunt.dto.MatchResult;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -33,6 +35,8 @@ import java.util.regex.Pattern;
  */
 @Service
 public class GeminiScoringService {
+
+    private static final Logger log = LoggerFactory.getLogger(GeminiScoringService.class);
 
     private static final Pattern JSON_BLOCK_PATTERN =
             Pattern.compile("```(?:json)?\\s*(\\{.*?\\})\\s*```", Pattern.DOTALL);
@@ -70,8 +74,7 @@ public class GeminiScoringService {
                 results.add(result);
             } catch (Exception e) {
                 // If a single job fails to score, log the error and add a default entry
-                System.err.printf("[GeminiScoringService] Failed to score job %s: %s%n",
-                        job.getDocumentId(), e.getMessage());
+                log.error("Failed to score job {}: {}", job.getDocumentId(), e.getMessage(), e);
                 results.add(buildFallbackResult(job));
             }
         }

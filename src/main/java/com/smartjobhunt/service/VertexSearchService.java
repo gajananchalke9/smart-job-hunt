@@ -10,6 +10,8 @@ import com.google.cloud.discoveryengine.v1.SearchResponse;
 import com.google.cloud.discoveryengine.v1.SearchServiceClient;
 import com.google.cloud.discoveryengine.v1.ServingConfigName;
 import com.smartjobhunt.dto.JobSearchResult;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -31,6 +33,8 @@ import java.util.concurrent.ExecutionException;
  */
 @Service
 public class VertexSearchService {
+
+    private static final Logger log = LoggerFactory.getLogger(VertexSearchService.class);
 
     private final SearchServiceClient searchServiceClient;
     private final DocumentServiceClient documentServiceClient;
@@ -61,12 +65,11 @@ public class VertexSearchService {
      * <p>The import is triggered asynchronously; this method waits for the
      * long-running operation to complete before returning.
      *
-     * @param gcsUri     the GCS URI of the PDF, e.g. {@code gs://bucket/jobs/foo.pdf}
-     * @param documentId a stable ID for this document (used as the Vertex AI Search document ID)
+     * @param gcsUri the GCS URI of the PDF, e.g. {@code gs://bucket/jobs/foo.pdf}
      * @throws InterruptedException if the thread is interrupted while waiting
      * @throws ExecutionException   if the import operation fails
      */
-    public void importDocument(String gcsUri, String documentId)
+    public void importDocument(String gcsUri)
             throws InterruptedException, ExecutionException {
 
         // Build the branch resource name where documents are stored
@@ -91,8 +94,7 @@ public class VertexSearchService {
         // Log any per-document errors (non-fatal – the overall import still succeeded)
         if (response.getErrorSamplesCount() > 0) {
             response.getErrorSamplesList().forEach(e ->
-                    System.err.printf("[VertexSearchService] import warning for %s: %s%n",
-                            gcsUri, e.getMessage()));
+                    log.warn("[VertexSearchService] import warning for {}: {}", gcsUri, e.getMessage()));
         }
     }
 

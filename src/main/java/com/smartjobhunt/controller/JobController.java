@@ -16,7 +16,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
-import java.util.UUID;
 
 /**
  * REST controller for job-profile management.
@@ -64,14 +63,11 @@ public class JobController {
         // 1) Upload to GCS
         String gcsUri = gcsService.uploadPdf(file, null);
 
-        // 2) Assign a stable document ID (UUID)
-        String documentId = UUID.randomUUID().toString();
-
-        // 3) Import into Vertex AI Search (async LRO – waits for completion)
-        vertexSearchService.importDocument(gcsUri, documentId);
+        // 2) Import into Vertex AI Search (async LRO – waits for completion)
+        vertexSearchService.importDocument(gcsUri);
 
         return ResponseEntity.ok(new JobUploadResponse(
-                documentId,
+                gcsUri,   // use GCS URI as the stable identifier exposed to callers
                 gcsUri,
                 "Job uploaded and indexed successfully."));
     }
