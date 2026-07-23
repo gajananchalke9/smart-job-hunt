@@ -5,6 +5,13 @@ import com.smartjobhunt.dto.MatchResult;
 import com.smartjobhunt.service.GeminiScoringService;
 import com.smartjobhunt.service.ResumeParsingService;
 import com.smartjobhunt.service.VertexSearchService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -27,6 +34,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/match")
+@Tag(name = "Resume Matching", description = "APIs for intelligent resume-to-job matching using AI")
 public class MatchController {
 
     /** Default query to retrieve broad candidate jobs when no keywords are extracted. */
@@ -67,8 +75,31 @@ public class MatchController {
      * @param resumeFile the PDF file (multipart/form-data, field name {@code resume})
      * @return list of {@link MatchResult} sorted by {@code score} descending
      */
+    @Operation(
+            summary = "Match resume to job descriptions",
+            description = "Uploads a resume PDF and intelligently matches it against all indexed job descriptions. "
+                    + "Uses Vertex AI Search to find candidate jobs and Gemini AI to score each match with explainable reasoning. "
+                    + "Returns jobs sorted by match score (0-100) in descending order."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Resume matched successfully",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = MatchResult.class))
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Invalid input - resume file is empty, not a PDF, or contains no extractable text"
+            ),
+            @ApiResponse(
+                    responseCode = "500",
+                    description = "Internal server error during matching process"
+            )
+    })
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<List<MatchResult>> matchResume(
+            @Parameter(description = "Resume PDF file with selectable text", required = true)
             @RequestParam("resume") MultipartFile resumeFile) throws Exception {
 
         if (resumeFile.isEmpty()) {
