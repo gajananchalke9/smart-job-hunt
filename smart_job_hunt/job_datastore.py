@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -9,6 +10,7 @@ from typing import Any
 
 
 WORD_RE = re.compile(r"[a-zA-Z0-9_+#.-]+")
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
@@ -87,6 +89,7 @@ class JobProfileDatastore:
         try:
             response = self.search_client.search(prompt=prompt, top_k=top_k)
         except Exception:
+            LOGGER.exception("Vertex AI search failed; falling back to keyword search.")
             return []
 
         ids = {
@@ -119,10 +122,7 @@ class JobProfileDatastore:
         job_terms = set(_tokenize(f"{job['title']} {job['description']}"))
         matched = sorted(resume_terms & job_terms)
         score = 0.0 if not job_terms else round((len(matched) / len(job_terms)) * 100, 2)
-        summary = (
-            f"Matched {len(matched)} job terms out of {len(job_terms)} "
-            f"({score:.2f}% relevance)."
-        )
+        summary = f"Matched {len(matched)} job terms out of {len(job_terms)} ({score}% relevance)."
         return JobMatch(
             job_id=job["job_id"],
             title=job["title"],
@@ -156,6 +156,7 @@ class JobProfileDatastore:
                 }
             )
         except Exception:
+            LOGGER.exception("Vertex AI indexing failed; continuing without index update.")
             return
 
     def _read_store(self) -> dict[str, Any]:
