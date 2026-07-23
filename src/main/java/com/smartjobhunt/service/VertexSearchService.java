@@ -142,16 +142,24 @@ public class VertexSearchService {
             // Use fully-qualified com.google.protobuf.Value to avoid naming clash
             Map<String, com.google.protobuf.Value> fields = doc.getStructData().getFieldsMap();
 
-            // Extract GCS URI first - needed for both gcsUri field and title fallback
-            // Try fields in order: "uri" -> "gcs_uri" -> doc.getName()
-            String gcsUri  = extractStringField(fields, "uri",
-                    extractStringField(fields, "gcs_uri", doc.getName()));
+            // Extract GCS URI from content field or structData
+            String gcsUri = null;
+            if (doc.hasContent() && doc.getContent().hasUri()) {
+                gcsUri = doc.getContent().getUri();
+                log.debug("Extracted URI from content field: {}", gcsUri);
+            } else {
+                // Fallback: try to find URI in structData fields
+                gcsUri = extractStringField(fields, "uri",
+                        extractStringField(fields, "gcs_uri", doc.getName()));
+                log.debug("Extracted URI from structData or doc.getName(): {}", gcsUri);
+            }
             
-            // Extract title from structured metadata only (never use filename)
-            String title = extractStringField(fields, "title",
-                    extractStringField(fields, "name", "Untitled Job"));
-            // If title is empty or just the document ID, use "Untitled Job"
+            // Extract title from structured metadata only (never use filename or documentId)
+            String title = extractStringField(fields, "title", 
+                    extractStringField(fields, "name", ""));
+            // If title is empty or equals the document ID, use "Untitled Job"
             if (title.isEmpty() || title.equals(doc.getId())) {
+                log.warn("Title not found or equals documentId for doc {}, using 'Untitled Job'", doc.getId());
                 title = "Untitled Job";
             }
             
@@ -160,7 +168,8 @@ public class VertexSearchService {
             results.add(new JobSearchResult(doc.getId(), title, snippet, gcsUri, 0.0));
             resultCount++;
             
-            log.debug("Search result {}: documentId={}, title='{}'", resultCount, doc.getId(), title);
+            log.debug("Search result {}: documentId={}, title='{}', gcsUri='{}'", 
+                    resultCount, doc.getId(), title, gcsUri);
         }
 
         log.info("Vertex AI Search completed - returned {} results for query: '{}'", results.size(), query);
