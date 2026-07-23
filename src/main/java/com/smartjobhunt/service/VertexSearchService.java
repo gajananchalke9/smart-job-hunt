@@ -128,11 +128,19 @@ public class VertexSearchService {
             // Use fully-qualified com.google.protobuf.Value to avoid naming clash
             Map<String, com.google.protobuf.Value> fields = doc.getStructData().getFieldsMap();
 
-            String title   = extractStringField(fields, "title",
-                    extractStringField(fields, "name", doc.getId()));
-            String snippet = extractSnippet(result);
+            // Extract GCS URI first - needed for both gcsUri field and title fallback
+            // Try fields in order: "uri" -> "gcs_uri" -> doc.getName()
             String gcsUri  = extractStringField(fields, "uri",
-                    extractStringField(fields, "gcs_uri", ""));
+                    extractStringField(fields, "gcs_uri", doc.getName()));
+            
+            // Try to get title from structured metadata, fall back to extracting from GCS URI
+            String title   = extractStringField(fields, "title",
+                    extractStringField(fields, "name", null));
+            if (title == null || title.isEmpty() || title.equals(doc.getId())) {
+                title = extractTitleFromGcsUri(gcsUri);
+            }
+            
+            String snippet = extractSnippet(result);
 
             results.add(new JobSearchResult(doc.getId(), title, snippet, gcsUri, 0.0));
         }
@@ -151,6 +159,39 @@ public class VertexSearchService {
             return v.getStringValue();
         }
         return defaultValue;
+    }
+
+    /**
+     * Extracts a human-readable title from a GCS URI by taking the filename
+     * (without extension) and replacing underscores with spaces.
+     *
+     * @param gcsUri the GCS URI, e.g. {@code gs://bucket/jobs/Lead_Java_Backend_Engineer.pdf}
+     * @return a human-readable title, or "Untitled Job" if extraction fails
+     */
+    private String extractTitleFromGcsUri(String gcsUri) {
+        if (gcsUri == null || gcsUri.isEmpty()) {
+            return "Untitled Job";
+        }
+
+        // Extract filename from GCS URI (e.g., "gs://bucket/jobs/Lead_Java_Backend_Engineer.pdf")
+        String filename = gcsUri;
+        int lastSlash = gcsUri.lastIndexOf('/');
+        if (lastSlash >= 0 && lastSlash < gcsUri.length() - 1) {
+            filename = gcsUri.substring(lastSlash + 1);
+        }
+
+        // Remove .pdf extension (currently only PDFs are supported for job uploads)
+        if (filename.toLowerCase().endsWith(".pdf")) {
+            filename = filename.substring(0, filename.length() - 4);
+        }
+
+        // Replace underscores with spaces for better readability
+        // Also replace multiple spaces with single space
+        String title = filename.replaceAll("_", " ")
+                               .replaceAll("\\s+", " ")
+                               .trim();
+
+        return title.isEmpty() ? "Untitled Job" : title;
     }
 
     private String extractSnippet(SearchResponse.SearchResult result) {
