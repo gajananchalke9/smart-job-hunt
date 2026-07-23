@@ -129,6 +129,7 @@ public class VertexSearchService {
             Map<String, com.google.protobuf.Value> fields = doc.getStructData().getFieldsMap();
 
             // Extract GCS URI first - needed for both gcsUri field and title fallback
+            // Try fields in order: "uri" -> "gcs_uri" -> doc.getName()
             String gcsUri  = extractStringField(fields, "uri",
                     extractStringField(fields, "gcs_uri", doc.getName()));
             
@@ -162,10 +163,10 @@ public class VertexSearchService {
 
     /**
      * Extracts a human-readable title from a GCS URI by taking the filename
-     * (without extension), replacing underscores with spaces, and capitalizing appropriately.
+     * (without extension) and replacing underscores with spaces.
      *
      * @param gcsUri the GCS URI, e.g. {@code gs://bucket/jobs/Lead_Java_Backend_Engineer.pdf}
-     * @return a human-readable title, or the URI if extraction fails
+     * @return a human-readable title, or "Untitled Job" if extraction fails
      */
     private String extractTitleFromGcsUri(String gcsUri) {
         if (gcsUri == null || gcsUri.isEmpty()) {
@@ -179,7 +180,7 @@ public class VertexSearchService {
             filename = gcsUri.substring(lastSlash + 1);
         }
 
-        // Remove .pdf extension
+        // Remove .pdf extension (currently only PDFs are supported for job uploads)
         if (filename.toLowerCase().endsWith(".pdf")) {
             filename = filename.substring(0, filename.length() - 4);
         }
