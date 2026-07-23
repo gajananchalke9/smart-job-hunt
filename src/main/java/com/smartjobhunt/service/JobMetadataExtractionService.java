@@ -61,7 +61,11 @@ public class JobMetadataExtractionService {
      * @throws IOException if PDF parsing or AI request fails
      */
     public JobMetadata extractMetadata(MultipartFile file) throws IOException {
+        log.info("Starting metadata extraction from PDF - filename: {}, size: {} bytes",
+                file.getOriginalFilename(), file.getSize());
+        
         // 1) Extract text from PDF
+        log.debug("Extracting text from PDF for metadata extraction");
         String pdfText = resumeParsingService.extractText(file);
         
         if (pdfText == null || pdfText.trim().isEmpty()) {
@@ -69,18 +73,30 @@ public class JobMetadataExtractionService {
             return createFallbackMetadata();
         }
 
+        log.info("PDF text extracted successfully - length: {} characters", pdfText.length());
+
         // 2) Truncate text to stay within Gemini context limits
         String truncatedText = truncateText(pdfText, 8000);
+        if (truncatedText.length() < pdfText.length()) {
+            log.debug("PDF text truncated from {} to {} characters for Gemini",
+                    pdfText.length(), truncatedText.length());
+        }
 
         // 3) Build prompt for Gemini
+        log.debug("Building Gemini extraction prompt");
         String prompt = buildExtractionPrompt(truncatedText);
 
         // 4) Call Gemini
         try {
+            log.info("Calling Gemini for metadata extraction");
             String rawResponse = callGemini(prompt);
             
             // 5) Parse JSON response
-            return parseGeminiResponse(rawResponse);
+            log.debug("Parsing Gemini response to JobMetadata");
+            JobMetadata metadata = parseGeminiResponse(rawResponse);
+            log.info("Metadata extraction completed successfully - title: '{}', company: '{}', jobId: '{}'",
+                    metadata.getTitle(), metadata.getCompany(), metadata.getJobId());
+            return metadata;
         } catch (Exception e) {
             log.error("Failed to extract metadata using Gemini: {}", e.getMessage(), e);
             return createFallbackMetadata();
@@ -127,6 +143,7 @@ public class JobMetadataExtractionService {
      * Calls Gemini API with the extraction prompt.
      */
     private String callGemini(String prompt) throws IOException {
+        log.debug("Initializing Gemini model: {}", geminiModel);
         GenerativeModel model = new GenerativeModel(geminiModel, vertexAI);
         
         // Configure for structured JSON output
@@ -141,10 +158,15 @@ public class JobMetadataExtractionService {
                 .build();
         
         model = model.withGenerationConfig(config);
+        log.debug("Gemini model configured - temperature: 0.2, topK: 10, topP: 0.8");
         
+        log.debug("Starting chat session with Gemini");
         ChatSession chat = model.startChat();
+        
+        log.debug("Sending metadata extraction prompt to Gemini");
         String response = ResponseHandler.getText(chat.sendMessage(prompt));
         
+        log.debug("Gemini metadata extraction response received - length: {} characters", response.length());
         log.debug("Gemini metadata extraction response: {}", response);
         return response;
     }
@@ -154,6 +176,7 @@ public class JobMetadataExtractionService {
      * Handles cases where JSON is embedded in markdown code blocks or surrounded by text.
      */
     private JobMetadata parseGeminiResponse(String rawResponse) throws IOException {
+        log.debug("Extracting JSON from Gemini response");
         String jsonStr = extractJson(rawResponse);
         
         if (jsonStr == null || jsonStr.isBlank()) {
@@ -161,8 +184,11 @@ public class JobMetadataExtractionService {
             return createFallbackMetadata();
         }
 
+        log.debug("Parsing extracted JSON to JobMetadata - jsonLength: {} characters", jsonStr.length());
         try {
-            return objectMapper.readValue(jsonStr, JobMetadata.class);
+            JobMetadata metadata = objectMapper.readValue(jsonStr, JobMetadata.class);
+            log.debug("Successfully parsed JobMetadata from Gemini response");
+            return metadata;
         } catch (Exception e) {
             log.error("Failed to parse Gemini JSON response: {}", e.getMessage());
             return createFallbackMetadata();
@@ -200,6 +226,7 @@ public class JobMetadataExtractionService {
      * Creates fallback metadata when AI extraction fails or PDF text is empty.
      */
     private JobMetadata createFallbackMetadata() {
+        log.info("Creating fallback metadata");
         JobMetadata metadata = new JobMetadata();
         metadata.setTitle("Untitled Job");
         metadata.setJobId("N/A");

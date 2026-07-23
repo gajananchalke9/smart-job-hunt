@@ -6,6 +6,8 @@ import com.smartjobhunt.service.GeminiScoringService;
 import com.smartjobhunt.service.ResumeParsingService;
 import com.smartjobhunt.service.VertexSearchService;
 import io.swagger.v3.oas.annotations.Operation;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -36,6 +38,8 @@ import java.util.List;
 @RequestMapping("/api/match")
 @Tag(name = "Resume Matching", description = "APIs for intelligent resume-to-job matching using AI")
 public class MatchController {
+
+    private static final Logger log = LoggerFactory.getLogger(MatchController.class);
 
     /** Default query to retrieve broad candidate jobs when no keywords are extracted. */
     private static final String DEFAULT_QUERY = "software engineer job";
@@ -102,37 +106,54 @@ public class MatchController {
             @Parameter(description = "Resume PDF file with selectable text", required = true)
             @RequestParam("resume") MultipartFile resumeFile) throws Exception {
 
+        log.info("Received resume matching request - filename: {}, size: {} bytes",
+                resumeFile.getOriginalFilename(), resumeFile.getSize());
+
         if (resumeFile.isEmpty()) {
+            log.error("Resume matching failed - file is empty");
             throw new IllegalArgumentException("Resume file is empty.");
         }
         if (!isPdf(resumeFile)) {
+            log.error("Resume matching failed - file is not a PDF: {}", resumeFile.getContentType());
             throw new IllegalArgumentException("Only PDF resumes are accepted.");
         }
 
         // 1) Extract resume text
+        log.debug("Extracting text from resume PDF");
         String resumeText = resumeParsingService.extractText(resumeFile);
         if (resumeText.isBlank()) {
+            log.error("Resume matching failed - no text extracted from PDF");
             throw new IllegalArgumentException(
                     "Could not extract text from the resume PDF. Ensure the PDF contains selectable text.");
         }
+        log.info("Resume text extracted successfully - length: {} characters", resumeText.length());
 
         // 2) Build a search query from the resume text (first 500 chars is usually enough)
         String searchQuery = buildSearchQuery(resumeText);
+        log.debug("Built search query from resume: '{}'", searchQuery.substring(0, Math.min(100, searchQuery.length())) + "...");
 
         // 3) Retrieve candidate jobs from Vertex AI Search
+        log.info("Searching for candidate jobs with query derived from resume");
         List<JobSearchResult> candidateJobs =
                 vertexSearchService.search(searchQuery, CANDIDATE_PAGE_SIZE);
 
         if (candidateJobs.isEmpty()) {
+            log.warn("No candidate jobs found for resume");
             return ResponseEntity.ok(List.of());
         }
+        log.info("Found {} candidate jobs for matching", candidateJobs.size());
 
         // 4) Score each candidate job with Gemini
+        log.info("Scoring {} candidate jobs against resume using Gemini", candidateJobs.size());
         List<MatchResult> scoredResults =
                 geminiScoringService.scoreJobs(candidateJobs, resumeText);
+        log.debug("Completed scoring all {} jobs", scoredResults.size());
 
         // 5) Sort by score descending (best match first)
         scoredResults.sort(Comparator.comparingInt(MatchResult::getScore).reversed());
+        log.info("Resume matching completed - returning {} scored results (top score: {})",
+                scoredResults.size(), 
+                scoredResults.isEmpty() ? "N/A" : scoredResults.get(0).getScore());
 
         return ResponseEntity.ok(scoredResults);
     }

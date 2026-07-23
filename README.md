@@ -374,6 +374,91 @@ python -m unittest discover -s tests -p 'test_*.py'
 
 ---
 
+## Logging
+
+The application includes comprehensive logging to help you understand what's happening during execution.
+
+### Log Levels
+
+The application uses the following log levels configured in `application.yml`:
+
+- **Root level**: `INFO` - General application logs
+- **Application logs** (`com.smartjobhunt`): `DEBUG` - Detailed application-specific logs
+- **Spring Web**: `INFO` - HTTP request/response logs
+- **Google Cloud**: `INFO` - GCP service logs
+
+### What Gets Logged
+
+The application logs the following events:
+
+#### Application Startup
+- Application start and ready events
+- Configuration details (Swagger UI URLs)
+
+#### Job Upload (`POST /api/jobs/upload`)
+- Incoming file details (filename, size)
+- Metadata parsing or AI extraction start/completion
+- GCS upload progress (PDF and JSONL)
+- Vertex AI Search import start/completion
+- Document IDs and URIs
+- Errors and warnings
+
+#### Job Search (`POST /api/jobs/search`)
+- Search query and page size
+- Number of results found
+- Individual result details (document ID, title)
+
+#### Resume Matching (`POST /api/match`)
+- Incoming resume file details
+- PDF text extraction progress
+- Search query building
+- Candidate job retrieval
+- Gemini scoring for each job (score, strengths, gaps)
+- Final sorted results
+
+#### Error Handling
+- All validation errors
+- Constraint violations
+- Illegal arguments
+- File size limit exceeded
+- Unhandled exceptions with full stack traces
+
+### Viewing Logs
+
+When running the application, logs appear in the console with timestamps and log levels:
+
+```
+2026-07-23 23:16:32.123 [main] INFO  c.s.SmartJobHuntApplication - Starting Smart Job Hunt application...
+2026-07-23 23:16:35.456 [main] INFO  c.s.SmartJobHuntApplication - ========================================
+2026-07-23 23:16:35.457 [main] INFO  c.s.SmartJobHuntApplication - Smart Job Hunt application is ready!
+2026-07-23 23:16:35.458 [main] INFO  c.s.SmartJobHuntApplication - Swagger UI: http://localhost:8080/swagger-ui.html
+2026-07-23 23:16:35.459 [main] INFO  c.s.SmartJobHuntApplication - ========================================
+2026-07-23 23:16:40.123 [http-nio-8080-exec-1] INFO  c.s.c.JobController - Received job upload request - filename: job.pdf, size: 123456 bytes, metadata provided: false
+```
+
+### Customizing Log Levels
+
+To change log levels, modify `src/main/resources/application.yml`:
+
+```yaml
+logging:
+  level:
+    root: INFO                    # Change to DEBUG for more verbose output
+    com.smartjobhunt: DEBUG       # Application-specific logs
+    org.springframework.web: INFO # Spring framework logs
+    com.google.cloud: INFO        # GCP SDK logs
+```
+
+Or use environment variables:
+
+```bash
+export LOGGING_LEVEL_ROOT=DEBUG
+export LOGGING_LEVEL_COM_SMARTJOBHUNT=TRACE
+mvn spring-boot:run
+```
+
+---
+
 ## License
 
 MIT

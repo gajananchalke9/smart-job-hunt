@@ -75,8 +75,11 @@ public class VertexSearchService {
     public void importDocument(String jsonlGcsUri)
             throws InterruptedException, ExecutionException {
 
+        log.info("Starting document import to Vertex AI Search - jsonlUri: {}", jsonlGcsUri);
+
         // Build the branch resource name where documents are stored
         String branchName = BranchName.of(projectId, location, datastoreId, "default_branch").toString();
+        log.debug("Using branch name: {}", branchName);
 
         // GCS source pointing at the JSONL metadata file
         GcsSource gcsSource = GcsSource.newBuilder()
@@ -90,12 +93,16 @@ public class VertexSearchService {
                 .setReconciliationMode(ImportDocumentsRequest.ReconciliationMode.INCREMENTAL)
                 .build();
 
+        log.debug("Submitting import documents request - mode: INCREMENTAL");
         // Block until the LRO finishes
         ImportDocumentsResponse response =
                 documentServiceClient.importDocumentsAsync(request).get();
 
+        log.info("Document import completed successfully - jsonlUri: {}", jsonlGcsUri);
+
         // Log any per-document errors (non-fatal – the overall import still succeeded)
         if (response.getErrorSamplesCount() > 0) {
+            log.warn("Import completed with {} error samples", response.getErrorSamplesCount());
             response.getErrorSamplesList().forEach(e ->
                     log.warn("[VertexSearchService] import warning for {}: {}", jsonlGcsUri, e.getMessage()));
         }
@@ -113,8 +120,11 @@ public class VertexSearchService {
      * @return list of {@link JobSearchResult} sorted by Vertex AI Search relevance
      */
     public List<JobSearchResult> search(String query, int pageSize) {
+        log.info("Starting Vertex AI Search - query: '{}', pageSize: {}", query, pageSize);
+        
         String servingConfig = ServingConfigName.of(
                 projectId, location, datastoreId, "default_config").toString();
+        log.debug("Using serving config: {}", servingConfig);
 
         SearchRequest request = SearchRequest.newBuilder()
                 .setServingConfig(servingConfig)
@@ -123,6 +133,7 @@ public class VertexSearchService {
                 .build();
 
         List<JobSearchResult> results = new ArrayList<>();
+        int resultCount = 0;
 
         for (SearchResponse.SearchResult result :
                 searchServiceClient.search(request).iterateAll()) {
@@ -147,8 +158,12 @@ public class VertexSearchService {
             String snippet = extractSnippet(result);
 
             results.add(new JobSearchResult(doc.getId(), title, snippet, gcsUri, 0.0));
+            resultCount++;
+            
+            log.debug("Search result {}: documentId={}, title='{}'", resultCount, doc.getId(), title);
         }
 
+        log.info("Vertex AI Search completed - returned {} results for query: '{}'", results.size(), query);
         return results;
     }
 

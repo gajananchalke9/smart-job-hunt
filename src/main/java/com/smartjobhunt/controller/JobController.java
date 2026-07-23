@@ -9,6 +9,8 @@ import com.smartjobhunt.service.GcsService;
 import com.smartjobhunt.service.JobMetadataExtractionService;
 import com.smartjobhunt.service.VertexSearchService;
 import io.swagger.v3.oas.annotations.Operation;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -40,6 +42,8 @@ import java.util.List;
 @RequestMapping("/api/jobs")
 @Tag(name = "Job Management", description = "APIs for uploading and searching job descriptions")
 public class JobController {
+
+    private static final Logger log = LoggerFactory.getLogger(JobController.class);
 
     private final GcsService gcsService;
     private final VertexSearchService vertexSearchService;
@@ -97,21 +101,34 @@ public class JobController {
             @Parameter(description = "Optional JSON metadata string. If not provided, metadata will be extracted from PDF content using AI.", required = false)
             @RequestParam(value = "metadata", required = false) String metadata) throws Exception {
 
+        log.info("Received job upload request - filename: {}, size: {} bytes, metadata provided: {}",
+                file.getOriginalFilename(), file.getSize(), metadata != null);
+
         if (file.isEmpty()) {
+            log.error("Job upload failed - file is empty");
             throw new IllegalArgumentException("Uploaded file is empty.");
         }
         if (!isPdf(file)) {
+            log.error("Job upload failed - file is not a PDF: {}", file.getContentType());
             throw new IllegalArgumentException("Only PDF files are accepted.");
         }
 
         // Parse metadata from JSON string or extract from PDF content
+        log.debug("Parsing or extracting job metadata");
         JobMetadata jobMetadata = parseOrCreateMetadata(metadata, file);
+        log.info("Job metadata prepared - title: {}, company: {}, jobId: {}",
+                jobMetadata.getTitle(), jobMetadata.getCompany(), jobMetadata.getJobId());
 
         // 1) Upload PDF and create JSONL metadata to GCS
+        log.debug("Uploading job PDF and metadata to GCS");
         GcsService.UploadResult result = gcsService.uploadJobWithMetadata(file, jobMetadata);
+        log.info("Job uploaded to GCS - documentId: {}, jsonlUri: {}",
+                result.getDocumentId(), result.getJsonlGcsUri());
 
         // 2) Import JSONL metadata into Vertex AI Search (async LRO – waits for completion)
+        log.debug("Importing document into Vertex AI Search - documentId: {}", result.getDocumentId());
         vertexSearchService.importDocument(result.getJsonlGcsUri());
+        log.info("Job successfully indexed in Vertex AI Search - documentId: {}", result.getDocumentId());
 
         return ResponseEntity.ok(new JobUploadResponse(
                 result.getDocumentId(),
@@ -124,15 +141,20 @@ public class JobController {
      */
     private JobMetadata parseOrCreateMetadata(String metadataJson, MultipartFile file) throws Exception {
         if (metadataJson != null && !metadataJson.isBlank()) {
+            log.debug("Parsing provided metadata JSON");
             try {
-                return objectMapper.readValue(metadataJson, JobMetadata.class);
+                JobMetadata parsed = objectMapper.readValue(metadataJson, JobMetadata.class);
+                log.debug("Successfully parsed metadata JSON");
+                return parsed;
             } catch (Exception e) {
+                log.error("Failed to parse metadata JSON: {}", e.getMessage());
                 throw new IllegalArgumentException(
                     "Invalid metadata JSON format: " + e.getMessage(), e);
             }
         }
 
         // Extract metadata from PDF content using AI
+        log.info("No metadata provided - extracting from PDF content using AI");
         return metadataExtractionService.extractMetadata(file);
     }
 
@@ -172,8 +194,14 @@ public class JobController {
             @Parameter(description = "Search request containing query and optional page size", required = true)
             @Valid @RequestBody JobSearchRequest request) {
 
+        log.info("Received job search request - query: '{}', pageSize: {}",
+                request.getQuery(), request.getPageSize());
+
         List<JobSearchResult> results =
                 vertexSearchService.search(request.getQuery(), request.getPageSize());
+
+        log.info("Job search completed - found {} results for query: '{}'",
+                results.size(), request.getQuery());
 
         return ResponseEntity.ok(results);
     }

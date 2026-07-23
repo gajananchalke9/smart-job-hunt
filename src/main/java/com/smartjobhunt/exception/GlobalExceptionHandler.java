@@ -35,6 +35,7 @@ public class GlobalExceptionHandler {
                 .map(fe -> fe.getField() + ": " + fe.getDefaultMessage())
                 .collect(Collectors.joining("; "));
 
+        log.warn("Validation error occurred: {}", details);
         return badRequest("Validation failed", details);
     }
 
@@ -43,6 +44,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<ErrorResponse> handleConstraintViolation(
             ConstraintViolationException ex) {
+        log.warn("Constraint violation occurred: {}", ex.getMessage());
         return badRequest("Constraint violation", ex.getMessage());
     }
 
@@ -51,6 +53,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleIllegalArgument(
             IllegalArgumentException ex) {
+        log.warn("Illegal argument: {}", ex.getMessage());
         return badRequest("Bad request", ex.getMessage());
     }
 
@@ -59,6 +62,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ErrorResponse> handleMaxUploadSize(
             MaxUploadSizeExceededException ex) {
+        log.warn("File upload size exceeded: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
                 .body(new ErrorResponse(
                         HttpStatus.PAYLOAD_TOO_LARGE.value(),
