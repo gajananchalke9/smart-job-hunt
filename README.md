@@ -185,7 +185,7 @@ This ensures meaningful metadata is created from the actual job description, not
      },
      "content": {
        "mimeType": "application/pdf",
-       "uri": "gs://bucket/jobs/job-description.pdf"
+       "uri": "gs://bucket/jobs/550e8400-e29b-41d4-a716-446655440000.pdf"
      }
    }
    ```

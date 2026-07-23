@@ -130,8 +130,12 @@ public class JobMetadataExtractionService {
         GenerativeModel model = new GenerativeModel(geminiModel, vertexAI);
         
         // Configure for structured JSON output
+        // - Low temperature (0.2) for consistent, deterministic output
+        // - TopK (10) limits vocabulary to top 10 most likely tokens at each step
+        // - TopP (0.8) ensures high-probability tokens are selected (nucleus sampling)
+        // These settings prioritize accuracy and consistency over creativity
         GenerationConfig config = GenerationConfig.newBuilder()
-                .setTemperature(0.2f)  // Lower temperature for more consistent output
+                .setTemperature(0.2f)
                 .setTopK(10)
                 .setTopP(0.8f)
                 .build();
