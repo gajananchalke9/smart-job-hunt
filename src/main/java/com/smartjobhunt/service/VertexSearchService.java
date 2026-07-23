@@ -143,7 +143,7 @@ public class VertexSearchService {
             Map<String, com.google.protobuf.Value> fields = doc.getStructData().getFieldsMap();
 
             // Extract GCS URI from content field or structData
-            String gcsUri = "";
+            String gcsUri = null;
             if (doc.hasContent() && doc.getContent().hasUri()) {
                 gcsUri = doc.getContent().getUri();
                 log.debug("Extracted URI from content field: {}", gcsUri);
@@ -155,12 +155,9 @@ public class VertexSearchService {
             }
             
             // Extract title from structured metadata only (never use filename or documentId)
-            String title = extractStringField(fields, "title", "");
-            if (title.isEmpty()) {
-                // Try alternative field names
-                title = extractStringField(fields, "name", "");
-            }
-            // If title is still empty or equals the document ID, use "Untitled Job"
+            String title = extractStringField(fields, "title", 
+                    extractStringField(fields, "name", ""));
+            // If title is empty or equals the document ID, use "Untitled Job"
             if (title.isEmpty() || title.equals(doc.getId())) {
                 log.warn("Title not found or equals documentId for doc {}, using 'Untitled Job'", doc.getId());
                 title = "Untitled Job";
