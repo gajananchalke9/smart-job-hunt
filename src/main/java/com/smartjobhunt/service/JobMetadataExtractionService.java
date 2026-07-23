@@ -119,7 +119,7 @@ public class JobMetadataExtractionService {
                 - Use empty array [] for locations if no locations are mentioned
                 - Use empty string "" for optional fields if they cannot be determined
                 - Ensure the JSON is valid and properly formatted
-                - If you cannot determine the title, use a descriptive title based on the role description
+                - Always provide a meaningful title: if you cannot determine the exact title from the document, create a descriptive title based on the role description (e.g., "Software Developer Position", "Marketing Role"). Do not leave the title field empty or null.
                 """.formatted(jobText);
     }
 
