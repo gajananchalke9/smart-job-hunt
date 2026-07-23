@@ -123,9 +123,10 @@ class JobProfileDatastore:
     def _score_job(self, job: dict[str, Any], resume_text: str) -> JobMatch:
         resume_terms = set(_tokenize(resume_text))
         job_terms = set(_tokenize(f"{job['title']} {job['description']}"))
+        job_term_count = len(job_terms)
         matched = sorted(resume_terms & job_terms)
-        score = 0.0 if not job_terms else round((len(matched) / len(job_terms)) * 100, 2)
-        summary = f"Matched {len(matched)} job terms out of {len(job_terms)} ({score}% relevance)."
+        score = 0.0 if not job_term_count else round((len(matched) / job_term_count) * 100, 2)
+        summary = f"Matched {len(matched)} job terms out of {job_term_count} ({score}% relevance)."
         return JobMatch(
             job_id=job["job_id"],
             title=job["title"],
@@ -163,7 +164,6 @@ class JobProfileDatastore:
                 "Vertex AI indexing failed (%s); continuing without index update.",
                 type(exc).__name__,
             )
-            return
 
     def _read_store(self) -> dict[str, Any]:
         with self.datastore_path.open("r", encoding="utf-8") as fh:
