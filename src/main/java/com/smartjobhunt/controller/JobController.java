@@ -6,6 +6,7 @@ import com.smartjobhunt.dto.JobSearchRequest;
 import com.smartjobhunt.dto.JobSearchResult;
 import com.smartjobhunt.dto.JobUploadResponse;
 import com.smartjobhunt.service.GcsService;
+import com.smartjobhunt.service.JobMetadataExtractionService;
 import com.smartjobhunt.service.VertexSearchService;
 import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
@@ -34,13 +35,16 @@ public class JobController {
 
     private final GcsService gcsService;
     private final VertexSearchService vertexSearchService;
+    private final JobMetadataExtractionService metadataExtractionService;
     private final ObjectMapper objectMapper;
 
     public JobController(GcsService gcsService,
                         VertexSearchService vertexSearchService,
+                        JobMetadataExtractionService metadataExtractionService,
                         ObjectMapper objectMapper) {
         this.gcsService = gcsService;
         this.vertexSearchService = vertexSearchService;
+        this.metadataExtractionService = metadataExtractionService;
         this.objectMapper = objectMapper;
     }
 
@@ -54,7 +58,7 @@ public class JobController {
      *
      * @param file     the PDF file (multipart/form-data, field name {@code file})
      * @param metadata JSON string containing structured metadata (title, job_id, company, etc.)
-     *                 Optional - if not provided, metadata will be extracted from filename
+     *                 Optional - if not provided, metadata will be extracted from PDF content using AI
      * @return {@link JobUploadResponse} containing the document ID and GCS URIs
      */
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -69,8 +73,8 @@ public class JobController {
             throw new IllegalArgumentException("Only PDF files are accepted.");
         }
 
-        // Parse metadata from JSON string or create default metadata
-        JobMetadata jobMetadata = parseOrCreateMetadata(metadata, file.getOriginalFilename());
+        // Parse metadata from JSON string or extract from PDF content
+        JobMetadata jobMetadata = parseOrCreateMetadata(metadata, file);
 
         // 1) Upload PDF and create JSONL metadata to GCS
         GcsService.UploadResult result = gcsService.uploadJobWithMetadata(file, jobMetadata);
@@ -85,9 +89,9 @@ public class JobController {
     }
 
     /**
-     * Parses metadata JSON string or creates default metadata from filename.
+     * Parses metadata JSON string or extracts metadata from PDF content using AI.
      */
-    private JobMetadata parseOrCreateMetadata(String metadataJson, String filename) throws Exception {
+    private JobMetadata parseOrCreateMetadata(String metadataJson, MultipartFile file) throws Exception {
         if (metadataJson != null && !metadataJson.isBlank()) {
             try {
                 return objectMapper.readValue(metadataJson, JobMetadata.class);
@@ -97,39 +101,8 @@ public class JobController {
             }
         }
 
-        // Create default metadata from filename
-        JobMetadata defaultMetadata = new JobMetadata();
-        defaultMetadata.setTitle(extractTitleFromFilename(filename));
-        defaultMetadata.setJobId(UNKNOWN_VALUE);
-        defaultMetadata.setCompany(UNKNOWN_VALUE);
-        defaultMetadata.setLocations(List.of());
-        return defaultMetadata;
-    }
-
-    /**
-     * Extracts a human-readable title from a filename.
-     * Removes extension and replaces underscores/hyphens with spaces.
-     */
-    private String extractTitleFromFilename(String filename) {
-        if (filename == null || filename.isBlank()) {
-            return "Untitled Job";
-        }
-
-        String title = filename;
-        
-        // Remove file extension
-        int lastDot = title.lastIndexOf('.');
-        if (lastDot > 0) {
-            title = title.substring(0, lastDot);
-        }
-
-        // Replace underscores and hyphens with spaces
-        title = title.replace("_", " ").replace("-", " ");
-        
-        // Replace multiple spaces with single space and trim
-        title = title.replaceAll("\\s+", " ").trim();
-
-        return title.isEmpty() ? "Untitled Job" : title;
+        // Extract metadata from PDF content using AI
+        return metadataExtractionService.extractMetadata(file);
     }
 
     // ─────────────────────────────────────────────────────────────

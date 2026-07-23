@@ -94,21 +94,16 @@ public class GcsService {
         // Generate a unique document ID
         String documentId = UUID.randomUUID().toString();
         
-        // Sanitise the original filename for the PDF
-        String originalFilename = file.getOriginalFilename();
-        String safeName = (originalFilename != null && !originalFilename.isBlank())
-                ? sanitiseFilename(originalFilename)
-                : documentId + ".pdf";
-        
-        // Upload the PDF to GCS
-        String pdfObjectName = "jobs/" + safeName;
+        // Use the document ID for the filename instead of original filename
+        // This ensures filenames are unique and not based on user-provided titles
+        String pdfObjectName = "jobs/" + documentId + ".pdf";
         String pdfGcsUri = uploadFile(file.getBytes(), pdfObjectName, "application/pdf");
         
         // Create JSONL metadata
         String jsonlContent = createJsonlMetadata(documentId, metadata, pdfGcsUri);
         
         // Upload JSONL metadata file
-        String jsonlObjectName = "jobs/" + removeExtension(safeName) + ".jsonl";
+        String jsonlObjectName = "jobs/" + documentId + ".jsonl";
         String jsonlGcsUri = uploadFile(
             jsonlContent.getBytes(StandardCharsets.UTF_8),
             jsonlObjectName,

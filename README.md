@@ -143,14 +143,19 @@ curl -X POST http://localhost:8080/api/jobs/upload \
   }'
 ```
 
-**Without metadata (basic):**
+**Without metadata (AI extraction):**
 
 ```bash
 curl -X POST http://localhost:8080/api/jobs/upload \
   -F "file=@/path/to/job-description.pdf"
 ```
 
-When metadata is not provided, the system will extract the title from the filename.
+When metadata is not provided, the system will:
+1. Extract text content from the PDF
+2. Use AI (Gemini) to analyze the content and extract structured metadata
+3. Automatically generate title, company, job ID, locations, and other fields based on the PDF content
+
+This ensures meaningful metadata is created from the actual job description, not just the filename.
 
 **Response:**
 ```json
@@ -163,8 +168,9 @@ When metadata is not provided, the system will extract the title from the filena
 
 **How it works:**
 
-1. The PDF is uploaded to GCS (e.g., `gs://bucket/jobs/job-description.pdf`)
-2. A JSONL metadata file is created with the structured data:
+1. The PDF is uploaded to GCS with a unique UUID-based filename (e.g., `gs://bucket/jobs/550e8400-e29b-41d4-a716-446655440000.pdf`)
+2. If metadata is not provided, the system extracts it from the PDF content using AI
+3. A JSONL metadata file is created with the structured data:
    ```json
    {
      "id": "550e8400-e29b-41d4-a716-446655440000",
@@ -183,7 +189,7 @@ When metadata is not provided, the system will extract the title from the filena
      }
    }
    ```
-3. The JSONL file is uploaded to GCS (e.g., `gs://bucket/jobs/job-description.jsonl`)
+3. The JSONL file is uploaded to GCS (e.g., `gs://bucket/jobs/550e8400-e29b-41d4-a716-446655440000.jsonl`)
 4. The JSONL is imported into Vertex AI Search, which indexes both the structured metadata and the PDF content
 
 ---
