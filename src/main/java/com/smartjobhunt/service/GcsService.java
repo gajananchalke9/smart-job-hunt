@@ -108,7 +108,7 @@ public class GcsService {
         String jsonlContent = createJsonlMetadata(documentId, metadata, pdfGcsUri);
         
         // Upload JSONL metadata file
-        String jsonlObjectName = "jobs/" + safeName.replace(".pdf", ".jsonl");
+        String jsonlObjectName = "jobs/" + removeExtension(safeName) + ".jsonl";
         String jsonlGcsUri = uploadFile(
             jsonlContent.getBytes(StandardCharsets.UTF_8),
             jsonlObjectName,
@@ -189,5 +189,20 @@ public class GcsService {
         return filename.trim()
                 .replaceAll("\\s+", "_")
                 .replaceAll("[^a-zA-Z0-9._\\-]", "");
+    }
+
+    /**
+     * Removes the file extension from a filename.
+     * For example: "foo.pdf" -> "foo", "bar.txt" -> "bar"
+     */
+    private String removeExtension(String filename) {
+        if (filename == null || filename.isEmpty()) {
+            return filename;
+        }
+        int lastDot = filename.lastIndexOf('.');
+        if (lastDot > 0) {
+            return filename.substring(0, lastDot);
+        }
+        return filename;
     }
 }

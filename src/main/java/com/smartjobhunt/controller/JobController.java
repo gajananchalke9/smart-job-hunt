@@ -89,19 +89,47 @@ public class JobController {
      */
     private JobMetadata parseOrCreateMetadata(String metadataJson, String filename) throws Exception {
         if (metadataJson != null && !metadataJson.isBlank()) {
-            return objectMapper.readValue(metadataJson, JobMetadata.class);
+            try {
+                return objectMapper.readValue(metadataJson, JobMetadata.class);
+            } catch (Exception e) {
+                throw new IllegalArgumentException(
+                    "Invalid metadata JSON format: " + e.getMessage(), e);
+            }
         }
 
         // Create default metadata from filename
         JobMetadata defaultMetadata = new JobMetadata();
-        String title = (filename != null && !filename.isBlank())
-                ? filename.replace(".pdf", "").replace("_", " ").replace("-", " ")
-                : "Untitled Job";
-        defaultMetadata.setTitle(title);
+        defaultMetadata.setTitle(extractTitleFromFilename(filename));
         defaultMetadata.setJobId("N/A");
         defaultMetadata.setCompany("N/A");
         defaultMetadata.setLocations(List.of());
         return defaultMetadata;
+    }
+
+    /**
+     * Extracts a human-readable title from a filename.
+     * Removes extension and replaces underscores/hyphens with spaces.
+     */
+    private String extractTitleFromFilename(String filename) {
+        if (filename == null || filename.isBlank()) {
+            return "Untitled Job";
+        }
+
+        String title = filename;
+        
+        // Remove file extension
+        int lastDot = title.lastIndexOf('.');
+        if (lastDot > 0) {
+            title = title.substring(0, lastDot);
+        }
+
+        // Replace underscores and hyphens with spaces
+        title = title.replace("_", " ").replace("-", " ");
+        
+        // Replace multiple spaces with single space and trim
+        title = title.replaceAll("\\s+", " ").trim();
+
+        return title.isEmpty() ? "Untitled Job" : title;
     }
 
     // ─────────────────────────────────────────────────────────────
