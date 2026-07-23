@@ -1,0 +1,31 @@
+# ── Compiled output ──────────────────────────────────────
+target/
+
+# ── IDE files ────────────────────────────────────────────
+.idea/
+*.iml
+*.ipr
+*.iws
+.classpath
+.project
+.settings/
+*.launch
+.vscode/
+
+# ── macOS ─────────────────────────────────────────────────
+.DS_Store
+
+# ── GCP credentials (NEVER commit service account keys) ──
+*.json
+!package.json
+application-local.yml
+application-local.yaml
+
+# ── Maven wrapper (optional – uncomment if you don't use it)
+# .mvn/
+# mvnw
+# mvnw.cmd
+
+# ── Logs ──────────────────────────────────────────────────
+*.log
+logs/
