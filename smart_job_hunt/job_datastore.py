@@ -9,7 +9,9 @@ from pathlib import Path
 from typing import Any
 
 
+# Includes tokens such as C++, C#, and .NET while still matching simple words.
 WORD_RE = re.compile(r"[a-zA-Z0-9_+#.-]+")
+RELEVANCE_SCALE = 100
 LOGGER = logging.getLogger(__name__)
 
 
@@ -77,14 +79,19 @@ class JobProfileDatastore:
         resume_text: str,
         top_k: int = 5,
     ) -> list[JobMatch]:
-        candidates = self._search_with_vertex(prompt, top_k) or self._keyword_search(prompt)
+        vertex_candidates = self._search_with_vertex(prompt, top_k)
+        candidates = (
+            self._keyword_search(prompt)
+            if vertex_candidates is None
+            else vertex_candidates
+        )
         results = [self._score_job(c, resume_text) for c in candidates]
         results.sort(key=lambda m: m.score, reverse=True)
         return results[:top_k]
 
-    def _search_with_vertex(self, prompt: str, top_k: int) -> list[dict[str, Any]]:
+    def _search_with_vertex(self, prompt: str, top_k: int) -> list[dict[str, Any]] | None:
         if not self.search_client:
-            return []
+            return None
 
         try:
             response = self.search_client.search(prompt=prompt, top_k=top_k)
@@ -93,7 +100,7 @@ class JobProfileDatastore:
                 "Vertex AI search failed (%s); falling back to keyword search.",
                 type(exc).__name__,
             )
-            return []
+            return None
 
         ids = {
             item.get("job_id")
@@ -127,7 +134,7 @@ class JobProfileDatastore:
         job_terms = set(_tokenize(f"{job['title']} {job['description']}"))
         job_term_count = len(job_terms)
         matched = sorted(resume_terms & job_terms)
-        score = 0.0 if job_term_count == 0 else round((len(matched) / job_term_count) * 100, 2)
+        score = 0.0 if job_term_count == 0 else round((len(matched) / job_term_count) * RELEVANCE_SCALE, 2)
         summary = f"Matched {len(matched)} job terms out of {job_term_count} ({score}% relevance)."
         return JobMatch(
             job_id=job["job_id"],
