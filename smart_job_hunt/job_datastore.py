@@ -88,8 +88,11 @@ class JobProfileDatastore:
 
         try:
             response = self.search_client.search(prompt=prompt, top_k=top_k)
-        except Exception:
-            LOGGER.exception("Vertex AI search failed; falling back to keyword search.")
+        except Exception as exc:
+            LOGGER.exception(
+                "Vertex AI search failed (%s); falling back to keyword search.",
+                type(exc).__name__,
+            )
             return []
 
         ids = {
@@ -155,8 +158,11 @@ class JobProfileDatastore:
                     "gcs_uri": entry.get("gcs_uri"),
                 }
             )
-        except Exception:
-            LOGGER.exception("Vertex AI indexing failed; continuing without index update.")
+        except Exception as exc:
+            LOGGER.exception(
+                "Vertex AI indexing failed (%s); continuing without index update.",
+                type(exc).__name__,
+            )
             return
 
     def _read_store(self) -> dict[str, Any]:
@@ -178,11 +184,10 @@ class VertexAISearchClient:
 
     def index_document(self, payload: dict[str, Any]) -> None:
         # Hook point for discoveryengine.DocumentServiceClient import and upsert.
-        _ = payload
+        pass
 
     def search(self, prompt: str, top_k: int) -> list[dict[str, Any]]:
         # Hook point for discoveryengine.SearchServiceClient query.
-        _ = (prompt, top_k)
         return []
 
 
