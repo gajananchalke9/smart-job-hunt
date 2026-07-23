@@ -29,6 +29,8 @@ class JobProfileDatastoreTests(unittest.TestCase):
                 pdf_path=pdf,
                 description="React TypeScript CSS UI",
             )
+            payload = json.loads(store.read_text(encoding="utf-8"))
+            self.assertEqual(payload["jobs"][0]["pdf_path"], str(pdf))
 
             results = ds.search_jobs(
                 prompt="engineer roles",

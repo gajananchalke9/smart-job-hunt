@@ -107,25 +107,27 @@ class JobProfileDatastore:
         return [job for job in store["jobs"] if job["job_id"] in ids]
 
     def _keyword_search(self, prompt: str) -> list[dict[str, Any]]:
+        store = self._read_store()
+        jobs = store["jobs"]
         prompt_terms = set(_tokenize(prompt))
         if not prompt_terms:
-            return self._read_store()["jobs"]
+            return jobs
 
         ranked: list[tuple[int, dict[str, Any]]] = []
-        for job in self._read_store()["jobs"]:
+        for job in jobs:
             text = f"{job['title']} {job['description']}"
             terms = set(_tokenize(text))
             overlap = len(prompt_terms & terms)
             ranked.append((overlap, job))
         ranked.sort(key=lambda item: item[0], reverse=True)
-        return [job for overlap, job in ranked if overlap > 0] or self._read_store()["jobs"]
+        return [job for overlap, job in ranked if overlap > 0] or jobs
 
     def _score_job(self, job: dict[str, Any], resume_text: str) -> JobMatch:
         resume_terms = set(_tokenize(resume_text))
         job_terms = set(_tokenize(f"{job['title']} {job['description']}"))
         job_term_count = len(job_terms)
         matched = sorted(resume_terms & job_terms)
-        score = 0.0 if not job_term_count else round((len(matched) / job_term_count) * 100, 2)
+        score = 0.0 if job_term_count == 0 else round((len(matched) / job_term_count) * 100, 2)
         summary = f"Matched {len(matched)} job terms out of {job_term_count} ({score}% relevance)."
         return JobMatch(
             job_id=job["job_id"],
@@ -175,7 +177,11 @@ class JobProfileDatastore:
 
 
 class VertexAISearchClient:
-    """Thin wrapper for Vertex AI Search/Discovery Engine integrations."""
+    """Thin wrapper for Vertex AI Search/Discovery Engine integrations.
+
+    Replace `index_document` and `search` with Discovery Engine client calls
+    using `self.project_id`, `self.location`, and `self.data_store_id`.
+    """
 
     def __init__(self, project_id: str, location: str, data_store_id: str) -> None:
         self.project_id = project_id
