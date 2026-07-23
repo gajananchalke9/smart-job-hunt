@@ -189,8 +189,8 @@ This ensures meaningful metadata is created from the actual job description, not
      }
    }
    ```
-3. The JSONL file is uploaded to GCS (e.g., `gs://bucket/jobs/550e8400-e29b-41d4-a716-446655440000.jsonl`)
-4. The JSONL is imported into Vertex AI Search, which indexes both the structured metadata and the PDF content
+4. The JSONL file is uploaded to GCS (e.g., `gs://bucket/jobs/550e8400-e29b-41d4-a716-446655440000.jsonl`)
+5. The JSONL is imported into Vertex AI Search, which indexes both the structured metadata and the PDF content
 
 ---
 
