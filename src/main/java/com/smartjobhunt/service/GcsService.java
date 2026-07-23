@@ -5,6 +5,8 @@ import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
 import com.smartjobhunt.dto.JobMetadata;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -24,6 +26,8 @@ import java.util.UUID;
  */
 @Service
 public class GcsService {
+
+    private static final Logger log = LoggerFactory.getLogger(GcsService.class);
 
     private final Storage storage;
     private final String bucketName;
@@ -65,22 +69,30 @@ public class GcsService {
     public UploadResult uploadJobWithMetadata(MultipartFile file, JobMetadata metadata) throws IOException {
         // Generate a unique document ID
         String documentId = UUID.randomUUID().toString();
+        log.info("Starting job upload to GCS - documentId: {}, filename: {}, size: {} bytes",
+                documentId, file.getOriginalFilename(), file.getSize());
         
         // Use the document ID for the filename instead of original filename
         // This ensures filenames are unique and not based on user-provided titles
         String pdfObjectName = "jobs/" + documentId + ".pdf";
+        log.debug("Uploading PDF to GCS - objectName: {}", pdfObjectName);
         String pdfGcsUri = uploadFile(file.getBytes(), pdfObjectName, "application/pdf");
+        log.info("PDF uploaded successfully to GCS - uri: {}", pdfGcsUri);
         
         // Create JSONL metadata
+        log.debug("Creating JSONL metadata for document: {}", documentId);
         String jsonlContent = createJsonlMetadata(documentId, metadata, pdfGcsUri);
+        log.debug("JSONL metadata created - size: {} bytes", jsonlContent.length());
         
         // Upload JSONL metadata file
         String jsonlObjectName = "jobs/" + documentId + ".jsonl";
+        log.debug("Uploading JSONL metadata to GCS - objectName: {}", jsonlObjectName);
         String jsonlGcsUri = uploadFile(
             jsonlContent.getBytes(StandardCharsets.UTF_8),
             jsonlObjectName,
             "application/jsonl"
         );
+        log.info("JSONL metadata uploaded successfully to GCS - uri: {}", jsonlGcsUri);
         
         return new UploadResult(documentId, jsonlGcsUri);
     }
@@ -141,13 +153,18 @@ public class GcsService {
      * @return the GCS URI
      */
     private String uploadFile(byte[] data, String objectName, String contentType) {
+        log.debug("Uploading file to GCS - bucket: {}, objectName: {}, contentType: {}, size: {} bytes",
+                bucketName, objectName, contentType, data.length);
+        
         BlobId blobId = BlobId.of(bucketName, objectName);
         BlobInfo blobInfo = BlobInfo.newBuilder(blobId)
                 .setContentType(contentType)
                 .build();
 
         storage.create(blobInfo, data);
-
-        return "gs://" + bucketName + "/" + objectName;
+        String gcsUri = "gs://" + bucketName + "/" + objectName;
+        
+        log.debug("File uploaded successfully to GCS - uri: {}", gcsUri);
+        return gcsUri;
     }
 }

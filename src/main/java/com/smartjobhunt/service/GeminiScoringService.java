@@ -65,20 +65,34 @@ public class GeminiScoringService {
      * @return list of {@link MatchResult} objects (not yet sorted)
      */
     public List<MatchResult> scoreJobs(List<JobSearchResult> jobs, String resumeText) {
+        log.info("Starting job scoring with Gemini - jobCount: {}, resumeLength: {} characters",
+                jobs.size(), resumeText.length());
+        
         List<MatchResult> results = new ArrayList<>();
 
         GenerativeModel model = new GenerativeModel(geminiModel, vertexAI);
+        log.debug("Using Gemini model: {}", geminiModel);
+        
+        int successCount = 0;
+        int failCount = 0;
+        
         for (JobSearchResult job : jobs) {
             try {
+                log.debug("Scoring job: documentId={}, title='{}'", job.getDocumentId(), job.getTitle());
                 MatchResult result = scoreJob(model, job, resumeText);
                 results.add(result);
+                successCount++;
+                log.debug("Job scored successfully: documentId={}, score={}", job.getDocumentId(), result.getScore());
             } catch (Exception e) {
                 // If a single job fails to score, log the error and add a default entry
+                failCount++;
                 log.error("Failed to score job {}: {}", job.getDocumentId(), e.getMessage(), e);
                 results.add(buildFallbackResult(job));
             }
         }
 
+        log.info("Job scoring completed - total: {}, successful: {}, failed: {}",
+                jobs.size(), successCount, failCount);
         return results;
     }
 
@@ -89,14 +103,25 @@ public class GeminiScoringService {
     private MatchResult scoreJob(GenerativeModel model, JobSearchResult job, String resumeText)
             throws IOException {
 
+        log.debug("Building Gemini prompt for job: {}", job.getDocumentId());
         String prompt = buildPrompt(job, resumeText);
+        
+        log.debug("Sending request to Gemini for job: {}", job.getDocumentId());
         GenerateContentResponse response = model.generateContent(prompt);
         String rawText = ResponseHandler.getText(response);
+        log.debug("Received response from Gemini for job: {}, responseLength: {} characters",
+                job.getDocumentId(), rawText.length());
 
+        log.debug("Parsing Gemini JSON response for job: {}", job.getDocumentId());
         MatchResult result = parseGeminiJson(rawText);
         result.setDocumentId(job.getDocumentId());
         result.setTitle(job.getTitle());
         result.setGcsUri(job.getGcsUri());
+        
+        log.info("Job scored: documentId={}, score={}, strengths={}, gaps={}",
+                job.getDocumentId(), result.getScore(), 
+                result.getStrengths().size(), result.getGaps().size());
+        
         return result;
     }
 
@@ -157,21 +182,25 @@ public class GeminiScoringService {
         // 1) Try to strip Markdown code fences (```json ... ``` or ``` ... ```)
         Matcher fenceMatcher = JSON_BLOCK_PATTERN.matcher(json);
         if (fenceMatcher.find()) {
+            log.debug("Extracted JSON from markdown code fence");
             json = fenceMatcher.group(1).trim();
         } else {
             // 2) Extract the first {...} block if there is surrounding text
             int start = json.indexOf('{');
             int end   = json.lastIndexOf('}');
             if (start >= 0 && end > start) {
+                log.debug("Extracted JSON block from response text");
                 json = json.substring(start, end + 1);
             }
         }
 
+        log.debug("Parsing JSON to MatchResult - jsonLength: {} characters", json.length());
         return objectMapper.readValue(json, MatchResult.class);
     }
 
     /** Creates a safe fallback {@link MatchResult} when Gemini scoring fails. */
     private MatchResult buildFallbackResult(JobSearchResult job) {
+        log.warn("Creating fallback result for job: {}", job.getDocumentId());
         MatchResult result = new MatchResult();
         result.setDocumentId(job.getDocumentId());
         result.setTitle(job.getTitle());
