@@ -5,10 +5,15 @@ import java.util.List;
 /**
  * Represents structured metadata for a job description.
  * This data will be used to create a JSONL file for Vertex AI Search indexing.
+ *
+ * <p>Note: The {@code title}, {@code jobId}, and {@code company} fields should typically
+ * be provided for proper search functionality. If not provided, they will default to "N/A"
+ * or extracted from the filename. The system does not enforce uniqueness of {@code jobId}
+ * at the API level - callers are responsible for ensuring unique job identifiers.
  */
 public class JobMetadata {
 
-    /** Unique identifier for the job (e.g., "R0357981"). */
+    /** Unique identifier for the job (e.g., "R0357981"). Should be unique per job posting. */
     private String jobId;
 
     /** Job title (e.g., "Apprentice Hiring for 2026-2027"). */

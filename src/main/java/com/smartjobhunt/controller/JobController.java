@@ -100,8 +100,8 @@ public class JobController {
         // Create default metadata from filename
         JobMetadata defaultMetadata = new JobMetadata();
         defaultMetadata.setTitle(extractTitleFromFilename(filename));
-        defaultMetadata.setJobId("N/A");
-        defaultMetadata.setCompany("N/A");
+        defaultMetadata.setJobId(UNKNOWN_VALUE);
+        defaultMetadata.setCompany(UNKNOWN_VALUE);
         defaultMetadata.setLocations(List.of());
         return defaultMetadata;
     }

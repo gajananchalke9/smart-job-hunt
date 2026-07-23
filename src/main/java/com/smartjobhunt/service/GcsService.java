@@ -122,8 +122,12 @@ public class GcsService {
      * Creates a JSONL line with structured metadata for Vertex AI Search.
      * Format matches the example provided in the problem statement.
      *
+     * <p>Required fields (title, job_id, company) should be non-null. If any required
+     * field is null, it will be serialized as null in the JSON output, which may cause
+     * search issues. Callers should ensure these fields are populated before calling this method.
+     *
      * @param documentId unique document identifier
-     * @param metadata   job metadata
+     * @param metadata   job metadata (should have title, jobId, and company populated)
      * @param pdfGcsUri  GCS URI of the uploaded PDF
      * @return JSONL formatted string
      * @throws IOException if JSON serialization fails
