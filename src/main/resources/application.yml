@@ -4,6 +4,7 @@ gcp:
   discovery-engine-location: global         # Vertex AI Search location (usually "global")
   gcs:
     bucket: hackathon-db-2026               # GCS bucket for job profiles and error logs
+    error-log-prefix: log                   # Directory prefix for error logs (default: log)
   discovery-engine:
     datastore-id: YOUR_DATASTORE_ID         # e.g. job-profiles-datastore
   vertex-ai:

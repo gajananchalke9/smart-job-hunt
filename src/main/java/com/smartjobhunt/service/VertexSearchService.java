@@ -48,6 +48,7 @@ public class VertexSearchService {
     private final String location;
     private final String datastoreId;
     private final String errorBucket;
+    private final String errorLogPrefix;
 
     public VertexSearchService(
             SearchServiceClient searchServiceClient,
@@ -55,13 +56,15 @@ public class VertexSearchService {
             @Value("${gcp.project-id}") String projectId,
             @Value("${gcp.discovery-engine-location:global}") String location,
             @Value("${gcp.discovery-engine.datastore-id}") String datastoreId,
-            @Value("${gcp.gcs.bucket}") String errorBucket) {
+            @Value("${gcp.gcs.bucket}") String errorBucket,
+            @Value("${gcp.gcs.error-log-prefix:log}") String errorLogPrefix) {
         this.searchServiceClient = searchServiceClient;
         this.documentServiceClient = documentServiceClient;
         this.projectId = projectId;
         this.location = location;
         this.datastoreId = datastoreId;
         this.errorBucket = errorBucket;
+        this.errorLogPrefix = errorLogPrefix;
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -98,8 +101,8 @@ public class VertexSearchService {
                 .setDataSchema("custom")   // custom schema for structured JSONL data
                 .build();
 
-        // Configure error output to go to the specified bucket under log/ directory
-        String errorGcsUri = "gs://" + errorBucket + "/log/";
+        // Configure error output to go to the specified bucket under the configured error log prefix
+        String errorGcsUri = "gs://" + errorBucket + "/" + errorLogPrefix + "/";
         log.debug("Configuring error output to: {}", errorGcsUri);
 
         ImportDocumentsRequest request = ImportDocumentsRequest.newBuilder()
