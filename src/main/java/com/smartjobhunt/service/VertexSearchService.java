@@ -5,6 +5,7 @@ import com.google.cloud.discoveryengine.v1.DocumentServiceClient;
 import com.google.cloud.discoveryengine.v1.GcsSource;
 import com.google.cloud.discoveryengine.v1.ImportDocumentsRequest;
 import com.google.cloud.discoveryengine.v1.ImportDocumentsResponse;
+import com.google.cloud.discoveryengine.v1.ImportErrorConfig;
 import com.google.cloud.discoveryengine.v1.SearchRequest;
 import com.google.cloud.discoveryengine.v1.SearchResponse;
 import com.google.cloud.discoveryengine.v1.SearchServiceClient;
@@ -46,18 +47,24 @@ public class VertexSearchService {
     private final String projectId;
     private final String location;
     private final String datastoreId;
+    private final String errorBucket;
+    private final String errorLogPrefix;
 
     public VertexSearchService(
             SearchServiceClient searchServiceClient,
             DocumentServiceClient documentServiceClient,
             @Value("${gcp.project-id}") String projectId,
             @Value("${gcp.discovery-engine-location:global}") String location,
-            @Value("${gcp.discovery-engine.datastore-id}") String datastoreId) {
+            @Value("${gcp.discovery-engine.datastore-id}") String datastoreId,
+            @Value("${gcp.gcs.bucket}") String errorBucket,
+            @Value("${gcp.gcs.error-log-prefix:log}") String errorLogPrefix) {
         this.searchServiceClient = searchServiceClient;
         this.documentServiceClient = documentServiceClient;
         this.projectId = projectId;
         this.location = location;
         this.datastoreId = datastoreId;
+        this.errorBucket = errorBucket;
+        this.errorLogPrefix = errorLogPrefix;
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -73,7 +80,9 @@ public class VertexSearchService {
      * <p>The JSONL file should contain structured metadata including title, job_id, company, etc.,
      * as well as a content reference to the PDF file.
      *
-     * @param jsonlGcsUri the GCS URI of the JSONL metadata file, e.g. {@code gs://bucket/jobs/foo.jsonl}
+     * <p>Error logs from the import process are stored in the configured GCS bucket under the "log/" directory.
+     *
+     * @param jsonlGcsUri the GCS URI of the JSONL metadata file, e.g. {@code gs://bucket/Job-profiles/foo.jsonl}
      * @throws InterruptedException if the thread is interrupted while waiting
      * @throws ExecutionException   if the import operation fails
      */
@@ -92,13 +101,20 @@ public class VertexSearchService {
                 .setDataSchema("custom")   // custom schema for structured JSONL data
                 .build();
 
+        // Configure error output to go to the specified bucket under the configured error log prefix
+        String errorGcsUri = "gs://" + errorBucket + "/" + errorLogPrefix + "/";
+        log.debug("Configuring error output to: {}", errorGcsUri);
+
         ImportDocumentsRequest request = ImportDocumentsRequest.newBuilder()
                 .setParent(branchName)
                 .setGcsSource(gcsSource)
                 .setReconciliationMode(ImportDocumentsRequest.ReconciliationMode.INCREMENTAL)
+                .setErrorConfig(ImportErrorConfig.newBuilder()
+                        .setGcsPrefix(errorGcsUri)
+                        .build())
                 .build();
 
-        log.debug("Submitting import documents request - mode: INCREMENTAL");
+        log.debug("Submitting import documents request - mode: INCREMENTAL, errorGcsUri: {}", errorGcsUri);
         // Block until the LRO finishes
         ImportDocumentsResponse response =
                 documentServiceClient.importDocumentsAsync(request).get();
@@ -107,7 +123,8 @@ public class VertexSearchService {
 
         // Log any per-document errors (non-fatal – the overall import still succeeded)
         if (response.getErrorSamplesCount() > 0) {
-            log.warn("Import completed with {} error samples", response.getErrorSamplesCount());
+            log.warn("Import completed with {} error samples. Error logs stored at: {}", 
+                    response.getErrorSamplesCount(), errorGcsUri);
             response.getErrorSamplesList().forEach(e ->
                     log.warn("[VertexSearchService] import warning for {}: {}", jsonlGcsUri, e.getMessage()));
         }

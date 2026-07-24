@@ -21,7 +21,7 @@ import java.util.UUID;
  * Handles all interactions with Google Cloud Storage (GCS).
  *
  * <p>Job description PDFs are uploaded into the configured bucket under the
- * {@code jobs/} prefix. The returned GCS URI can be used by Vertex AI Search
+ * {@code Job-profiles/} prefix. The returned GCS URI can be used by Vertex AI Search
  * when importing documents.
  */
 @Service
@@ -74,7 +74,7 @@ public class GcsService {
         
         // Use the document ID for the filename instead of original filename
         // This ensures filenames are unique and not based on user-provided titles
-        String pdfObjectName = "jobs/" + documentId + ".pdf";
+        String pdfObjectName = "Job-profiles/" + documentId + ".pdf";
         log.debug("Uploading PDF to GCS - objectName: {}", pdfObjectName);
         String pdfGcsUri = uploadFile(file.getBytes(), pdfObjectName, "application/pdf");
         log.info("PDF uploaded successfully to GCS - uri: {}", pdfGcsUri);
@@ -85,7 +85,7 @@ public class GcsService {
         log.debug("JSONL metadata created - size: {} bytes", jsonlContent.length());
         
         // Upload JSONL metadata file
-        String jsonlObjectName = "jobs/" + documentId + ".jsonl";
+        String jsonlObjectName = "Job-profiles/" + documentId + ".jsonl";
         log.debug("Uploading JSONL metadata to GCS - objectName: {}", jsonlObjectName);
         String jsonlGcsUri = uploadFile(
             jsonlContent.getBytes(StandardCharsets.UTF_8),
