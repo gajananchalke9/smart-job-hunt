@@ -3,7 +3,7 @@ gcp:
   location: us-central1                     # Vertex AI region (Gemini + embeddings)
   discovery-engine-location: global         # Vertex AI Search location (usually "global")
   gcs:
-    bucket: YOUR_GCS_BUCKET_NAME            # e.g. smart-job-hunt-pdfs
+    bucket: hackathon-db-2026               # GCS bucket for job profiles and error logs
   discovery-engine:
     datastore-id: YOUR_DATASTORE_ID         # e.g. job-profiles-datastore
   vertex-ai:
