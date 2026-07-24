@@ -459,6 +459,169 @@ mvn spring-boot:run
 
 ---
 
+## Troubleshooting
+
+### Application not returning any results
+
+If you're experiencing issues where the application is not returning any results, follow these steps:
+
+#### 1. Check Configuration
+
+When the application starts, it validates your configuration. Look for these lines in the logs:
+
+```
+✓ GCP Project ID: your-project-id
+✓ GCS Bucket: your-bucket-name
+✓ Vertex AI Search Datastore ID: your-datastore-id
+```
+
+If you see error messages like:
+```
+❌ GCP Project ID is not configured!
+```
+
+Make sure you've replaced all `YOUR_*` placeholders in `application.yml` with actual values, or set the corresponding environment variables.
+
+#### 2. Verify GCP Authentication
+
+The application uses Application Default Credentials (ADC). Verify authentication:
+
+```bash
+gcloud auth application-default login
+```
+
+Or if using a service account:
+```bash
+export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account-key.json
+```
+
+#### 3. Check Vertex AI Search Datastore
+
+Make sure your Vertex AI Search datastore has indexed documents:
+
+1. Go to [Vertex AI Search Console](https://console.cloud.google.com/gen-app-builder/engines)
+2. Select your datastore
+3. Check the "Documents" tab to see if documents are indexed
+4. If no documents exist, upload some job PDFs using the `/api/jobs/upload` endpoint
+
+#### 4. Verify Document Format
+
+If you have old documents uploaded before PR#4 (before JSONL metadata support), they might not have proper structured metadata. To fix:
+
+**Option A: Re-upload documents**
+```bash
+# Upload with metadata
+curl -X POST http://localhost:8080/api/jobs/upload \
+  -F "file=@job.pdf" \
+  -F 'metadata={"title":"Software Engineer","company":"Acme Corp","jobId":"JOB-001"}'
+```
+
+**Option B: Upload without metadata (AI extraction)**
+```bash
+# The system will extract metadata from PDF content
+curl -X POST http://localhost:8080/api/jobs/upload \
+  -F "file=@job.pdf"
+```
+
+#### 5. Test Each Endpoint
+
+**Test job upload:**
+```bash
+curl -X POST http://localhost:8080/api/jobs/upload \
+  -F "file=@sample/Job-profiles/your-job.pdf"
+```
+
+Expected response:
+```json
+{
+  "documentId": "550e8400-e29b-41d4-a716-446655440000",
+  "gcsUri": "gs://your-bucket/jobs/550e8400-e29b-41d4-a716-446655440000.jsonl",
+  "message": "Job uploaded and indexed successfully with metadata."
+}
+```
+
+**Test job search:**
+```bash
+curl -X POST http://localhost:8080/api/jobs/search \
+  -H "Content-Type: application/json" \
+  -d '{"query":"software engineer","pageSize":5}'
+```
+
+Expected response:
+```json
+[
+  {
+    "documentId": "abc123",
+    "title": "Software Engineer",
+    "snippet": "We are looking for...",
+    "gcsUri": "gs://bucket/jobs/file.pdf",
+    "relevanceScore": 0.0
+  }
+]
+```
+
+**Test resume matching:**
+```bash
+curl -X POST http://localhost:8080/api/match \
+  -F "resume=@your-resume.pdf"
+```
+
+#### 6. Check Logs
+
+Enable DEBUG logging to see detailed information:
+
+```bash
+export LOGGING_LEVEL_COM_SMARTJOBHUNT=DEBUG
+mvn spring-boot:run
+```
+
+Look for error messages or exceptions in the logs. Common issues:
+- `Permission denied`: Check GCP IAM permissions
+- `404 Not Found`: Verify datastore ID and bucket name
+- `Invalid credentials`: Check authentication setup
+- `No documents found`: Upload documents to the datastore
+
+#### 7. Common Error Messages
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| "Uploaded file is empty" | Empty PDF file | Ensure the PDF file is not corrupted |
+| "Only PDF files are accepted" | Wrong file type | Upload only PDF files |
+| "Could not extract text from the resume PDF" | Scanned image PDF | Use PDFs with selectable text, not scanned images |
+| "No candidate jobs found for resume" | Empty datastore | Upload job PDFs first using `/api/jobs/upload` |
+| "Scoring unavailable" | Gemini API error | Check Vertex AI API is enabled and credentials are valid |
+
+#### 8. Verify GCP APIs
+
+Ensure these APIs are enabled in your GCP project:
+
+```bash
+gcloud services enable storage.googleapis.com
+gcloud services enable discoveryengine.googleapis.com
+gcloud services enable aiplatform.googleapis.com
+```
+
+#### 9. Test with Sample Data
+
+The repository includes sample data in the `sample/` directory. Try uploading a sample job:
+
+```bash
+ls sample/Job-profiles/
+curl -X POST http://localhost:8080/api/jobs/upload \
+  -F "file=@sample/Job-profiles/[select-a-pdf-file].pdf"
+```
+
+#### 10. Still Having Issues?
+
+If you're still experiencing problems:
+
+1. Check the [GitHub Issues](https://github.com/gajananchalke9/smart-job-hunt/issues) for similar problems
+2. Review the complete logs with DEBUG level enabled
+3. Verify all prerequisites in the README are met
+4. Try the Swagger UI at http://localhost:8080/swagger-ui.html to test endpoints interactively
+
+---
+
 ## License
 
 MIT
