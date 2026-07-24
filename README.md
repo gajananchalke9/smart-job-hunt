@@ -188,7 +188,7 @@ This ensures meaningful metadata is created from the actual job description, not
 3. A JSONL metadata file is created with the structured data:
    ```json
    {
-     "id": "550e8400-e29b-41d4-a716-446655440000",
+     "_id": "550e8400-e29b-41d4-a716-446655440000",
      "structData": {
        "title": "Apprentice Hiring for 2026-2027",
        "job_id": "R0357981",
