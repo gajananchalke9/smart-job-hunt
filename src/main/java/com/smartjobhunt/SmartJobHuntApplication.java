@@ -54,21 +54,21 @@ public class SmartJobHuntApplication {
         
         boolean hasErrors = false;
         
-        if (projectId == null || projectId.startsWith("YOUR_") || projectId.isBlank()) {
+        if (isInvalidConfig(projectId)) {
             log.error("❌ GCP Project ID is not configured! Please set gcp.project-id in application.yml or via environment variable GCP_PROJECT_ID");
             hasErrors = true;
         } else {
             log.info("✓ GCP Project ID: {}", projectId);
         }
         
-        if (bucketName == null || bucketName.startsWith("YOUR_") || bucketName.isBlank()) {
+        if (isInvalidConfig(bucketName)) {
             log.error("❌ GCS Bucket is not configured! Please set gcp.gcs.bucket in application.yml or via environment variable GCP_GCS_BUCKET");
             hasErrors = true;
         } else {
             log.info("✓ GCS Bucket: {}", bucketName);
         }
         
-        if (datastoreId == null || datastoreId.startsWith("YOUR_") || datastoreId.isBlank()) {
+        if (isInvalidConfig(datastoreId)) {
             log.error("❌ Vertex AI Search Datastore ID is not configured! Please set gcp.discovery-engine.datastore-id in application.yml or via environment variable GCP_DISCOVERY_ENGINE_DATASTORE_ID");
             hasErrors = true;
         } else {
@@ -86,5 +86,15 @@ public class SmartJobHuntApplication {
             log.info("✓ All required GCP configuration values are set");
             log.info("Note: This validation only checks that values are configured, not that they are valid or that GCP resources exist.");
         }
+    }
+
+    /**
+     * Checks if a configuration value is invalid (null, blank, or starts with "YOUR_").
+     *
+     * @param value the configuration value to check
+     * @return true if the value is invalid, false otherwise
+     */
+    private boolean isInvalidConfig(String value) {
+        return value == null || value.isBlank() || value.startsWith("YOUR_");
     }
 }
