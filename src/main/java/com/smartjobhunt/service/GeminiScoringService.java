@@ -129,6 +129,13 @@ public class GeminiScoringService {
      * Builds the Gemini prompt that requests an explainable JSON match score.
      */
     private String buildPrompt(JobSearchResult job, String resumeText) {
+        // Get job description - use snippet if available, otherwise provide minimal info
+        String jobDescription = job.getSnippet();
+        if (jobDescription == null || jobDescription.trim().isEmpty()) {
+            jobDescription = "Job title: " + job.getTitle() + "\nNo detailed description available.";
+            log.debug("No snippet available for job {}, using title only", job.getDocumentId());
+        }
+        
         return """
                 You are an expert recruiter and talent-matching engine.
                 
@@ -149,6 +156,7 @@ public class GeminiScoringService {
                 - strengths: 2-5 bullet-point strings listing what the candidate does well for this role
                 - gaps: 2-5 bullet-point strings listing what the candidate is missing
                 - summary: a single sentence explanation of the overall match
+                - If the job description is minimal, focus on matching based on the job title and resume content
                 
                 ---
                 JOB DESCRIPTION (title: %s):
@@ -162,7 +170,7 @@ public class GeminiScoringService {
                 Return ONLY the JSON object now.
                 """.formatted(
                 job.getTitle(),
-                truncate(job.getSnippet(), 2000),
+                truncate(jobDescription, 2000),
                 truncate(resumeText, 4000));
     }
 

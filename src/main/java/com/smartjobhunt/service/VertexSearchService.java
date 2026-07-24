@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import java.util.regex.Pattern;
 
 /**
  * Wraps calls to Vertex AI Search (Discovery Engine).
@@ -35,6 +36,10 @@ import java.util.concurrent.ExecutionException;
 public class VertexSearchService {
 
     private static final Logger log = LoggerFactory.getLogger(VertexSearchService.class);
+    
+    /** Compiled pattern for detecting UUID-based filenames (8-4-4-4-12 hex digits). */
+    private static final Pattern UUID_PATTERN = Pattern.compile(
+            "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
 
     private final SearchServiceClient searchServiceClient;
     private final DocumentServiceClient documentServiceClient;
@@ -154,12 +159,24 @@ public class VertexSearchService {
                 log.debug("Extracted URI from structData or doc.getName(): {}", gcsUri);
             }
             
-            // Extract title from structured metadata only (never use filename or documentId)
-            String title = extractStringField(fields, "title", 
-                    extractStringField(fields, "name", ""));
-            // If title is empty or equals the document ID, use "Untitled Job"
-            if (title.isEmpty() || title.equals(doc.getId())) {
-                log.warn("Title not found or equals documentId for doc {}, using 'Untitled Job'", doc.getId());
+            // Extract title with multiple fallback strategies
+            // 1. Try structured metadata (title field)
+            String title = extractStringField(fields, "title", null);
+            
+            // 2. If no title or title equals documentId, try name field
+            if (title == null || title.isEmpty() || title.equals(doc.getId())) {
+                title = extractStringField(fields, "name", null);
+            }
+            
+            // 3. If still no title or title equals documentId, try extracting from GCS URI
+            if (title == null || title.isEmpty() || title.equals(doc.getId())) {
+                log.debug("No valid title in metadata for doc {}, extracting from GCS URI", doc.getId());
+                title = extractTitleFromGcsUri(gcsUri);
+            }
+            
+            // 4. Final fallback to "Untitled Job" if all else fails
+            if (title == null || title.isEmpty()) {
+                log.warn("Could not extract title for doc {}, using 'Untitled Job'", doc.getId());
                 title = "Untitled Job";
             }
             
@@ -187,6 +204,50 @@ public class VertexSearchService {
             return v.getStringValue();
         }
         return defaultValue;
+    }
+
+    /**
+     * Extracts a human-readable title from a GCS URI by taking the filename
+     * (without extension), replacing underscores/hyphens with spaces, and trimming.
+     *
+     * <p>This is useful for documents that were uploaded without structured metadata
+     * or when the title field is missing from the search results.
+     *
+     * @param gcsUri the GCS URI, e.g. {@code gs://bucket/jobs/Lead_Java_Backend_Engineer.pdf}
+     * @return a human-readable title, or "Untitled Job" if extraction fails
+     */
+    private String extractTitleFromGcsUri(String gcsUri) {
+        if (gcsUri == null || gcsUri.isEmpty()) {
+            return "Untitled Job";
+        }
+
+        // Extract filename from GCS URI (e.g., "gs://bucket/jobs/Lead_Java_Backend_Engineer.pdf")
+        String filename = gcsUri;
+        int lastSlash = gcsUri.lastIndexOf('/');
+        if (lastSlash >= 0 && lastSlash < gcsUri.length() - 1) {
+            filename = gcsUri.substring(lastSlash + 1);
+        }
+
+        // Remove file extension
+        int lastDot = filename.lastIndexOf('.');
+        if (lastDot > 0) {
+            filename = filename.substring(0, lastDot);
+        }
+
+        // Check if filename looks like a UUID (no meaningful title)
+        // UUID pattern: 8-4-4-4-12 hex digits with hyphens
+        if (UUID_PATTERN.matcher(filename).matches()) {
+            log.debug("Filename is a UUID, cannot extract meaningful title: {}", filename);
+            return "Untitled Job";
+        }
+
+        // Replace underscores and hyphens with spaces for better readability
+        // Also replace multiple spaces with single space
+        String title = filename.replaceAll("[_-]", " ")
+                               .replaceAll("\\s+", " ")
+                               .trim();
+
+        return title.isEmpty() ? "Untitled Job" : title;
     }
 
     private String extractSnippet(SearchResponse.SearchResult result) {
