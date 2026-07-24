@@ -38,10 +38,14 @@ Resume PDF ──▶ PDFBox text extraction ──▶ Vertex AI Search retrieval
 ### GCS bucket
 
 ```bash
-gcloud storage buckets create gs://YOUR_BUCKET_NAME \
+gcloud storage buckets create gs://hackathon-db-2026 \
   --project=YOUR_PROJECT_ID \
   --location=us-central1
 ```
+
+The bucket will contain:
+- **Job-profiles/** - Job description PDFs and metadata files
+- **log/** - Error logs from Vertex AI Search document imports
 
 ### Vertex AI Search datastore
 
@@ -79,7 +83,7 @@ gcp:
   location: us-central1                     # Vertex AI region (Gemini)
   discovery-engine-location: global         # Vertex AI Search location
   gcs:
-    bucket: YOUR_GCS_BUCKET_NAME
+    bucket: hackathon-db-2026               # GCS bucket (default: hackathon-db-2026)
   discovery-engine:
     datastore-id: YOUR_DATASTORE_ID
   vertex-ai:
@@ -90,7 +94,7 @@ Alternatively, override any property via environment variable using Spring's rel
 
 ```bash
 export GCP_PROJECT_ID=my-project
-export GCP_GCS_BUCKET=my-bucket
+export GCP_GCS_BUCKET=hackathon-db-2026
 export GCP_DISCOVERY_ENGINE_DATASTORE_ID=my-datastore
 ```
 
@@ -176,14 +180,14 @@ This ensures meaningful metadata is created from the actual job description, not
 ```json
 {
   "documentId": "550e8400-e29b-41d4-a716-446655440000",
-  "gcsUri": "gs://your-bucket/jobs/job-description.jsonl",
+  "gcsUri": "gs://hackathon-db-2026/Job-profiles/job-description.jsonl",
   "message": "Job uploaded and indexed successfully with metadata."
 }
 ```
 
 **How it works:**
 
-1. The PDF is uploaded to GCS with a unique UUID-based filename (e.g., `gs://bucket/jobs/550e8400-e29b-41d4-a716-446655440000.pdf`)
+1. The PDF is uploaded to GCS with a unique UUID-based filename (e.g., `gs://hackathon-db-2026/Job-profiles/550e8400-e29b-41d4-a716-446655440000.pdf`)
 2. If metadata is not provided, the system extracts it from the PDF content using AI
 3. A JSONL metadata file is created with the structured data:
    ```json
@@ -200,11 +204,11 @@ This ensures meaningful metadata is created from the actual job description, not
      },
      "content": {
        "mimeType": "application/pdf",
-       "uri": "gs://bucket/jobs/550e8400-e29b-41d4-a716-446655440000.pdf"
+       "uri": "gs://hackathon-db-2026/Job-profiles/550e8400-e29b-41d4-a716-446655440000.pdf"
      }
    }
    ```
-4. The JSONL file is uploaded to GCS (e.g., `gs://bucket/jobs/550e8400-e29b-41d4-a716-446655440000.jsonl`)
+4. The JSONL file is uploaded to GCS (e.g., `gs://hackathon-db-2026/Job-profiles/550e8400-e29b-41d4-a716-446655440000.jsonl`)
 5. The JSONL is imported into Vertex AI Search, which indexes both the structured metadata and the PDF content
 
 ---
@@ -228,7 +232,7 @@ curl -X POST http://localhost:8080/api/jobs/search \
     "documentId": "abc123",
     "title": "Apprentice Hiring for 2026-2027",
     "snippet": "Exciting opportunity for fresh graduates to join our apprenticeship program...",
-    "gcsUri": "gs://your-bucket/jobs/apprentice-hiring.pdf",
+    "gcsUri": "gs://hackathon-db-2026/Job-profiles/apprentice-hiring.pdf",
     "relevanceScore": 0.0
   }
 ]
@@ -255,7 +259,7 @@ curl -X POST http://localhost:8080/api/match \
   {
     "documentId": "abc123",
     "title": "Senior Backend Engineer",
-    "gcsUri": "gs://your-bucket/jobs/senior-backend.pdf",
+    "gcsUri": "gs://hackathon-db-2026/Job-profiles/senior-backend.pdf",
     "score": 88,
     "strengths": [
       "5+ years Java experience aligns with requirements",
@@ -271,7 +275,7 @@ curl -X POST http://localhost:8080/api/match \
   {
     "documentId": "def456",
     "title": "DevOps Engineer",
-    "gcsUri": "gs://your-bucket/jobs/devops.pdf",
+    "gcsUri": "gs://hackathon-db-2026/Job-profiles/devops.pdf",
     "score": 62,
     "strengths": ["Docker/Kubernetes background relevant"],
     "gaps": ["Lacks Terraform experience", "No CI/CD pipeline ownership mentioned"],
@@ -535,7 +539,7 @@ Expected response:
 ```json
 {
   "documentId": "550e8400-e29b-41d4-a716-446655440000",
-  "gcsUri": "gs://your-bucket/jobs/550e8400-e29b-41d4-a716-446655440000.jsonl",
+  "gcsUri": "gs://hackathon-db-2026/Job-profiles/550e8400-e29b-41d4-a716-446655440000.jsonl",
   "message": "Job uploaded and indexed successfully with metadata."
 }
 ```
@@ -554,7 +558,7 @@ Expected response:
     "documentId": "abc123",
     "title": "Software Engineer",
     "snippet": "We are looking for...",
-    "gcsUri": "gs://bucket/jobs/file.pdf",
+    "gcsUri": "gs://hackathon-db-2026/Job-profiles/file.pdf",
     "relevanceScore": 0.0
   }
 ]
