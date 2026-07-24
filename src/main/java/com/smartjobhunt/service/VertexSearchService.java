@@ -98,7 +98,11 @@ public class VertexSearchService {
         // GCS source pointing at the JSONL metadata file
         GcsSource gcsSource = GcsSource.newBuilder()
                 .addInputUris(jsonlGcsUri)
-                .setDataSchema("custom")   // custom schema for structured JSONL data
+                // "document" schema is required so the PDF referenced by content.uri is
+                // actually indexed for full-text search alongside the structData metadata.
+                // The "custom" schema does not attach GCS-referenced content for
+                // CONTENT_REQUIRED data stores, which results in 0 search results.
+                .setDataSchema("document")
                 .build();
 
         // Configure error output to go to the specified bucket under the configured error log prefix
@@ -114,7 +118,8 @@ public class VertexSearchService {
                         .build())
                 .build();
 
-        log.debug("Submitting import documents request - mode: INCREMENTAL, errorGcsUri: {}", errorGcsUri);
+        log.debug("Submitting import documents request - dataSchema: {}, parent: {}, mode: INCREMENTAL, errorGcsUri: {}",
+                gcsSource.getDataSchema(), branchName, errorGcsUri);
         // Block until the LRO finishes
         ImportDocumentsResponse response =
                 documentServiceClient.importDocumentsAsync(request).get();
@@ -154,11 +159,18 @@ public class VertexSearchService {
                 .setPageSize(pageSize)
                 .build();
 
+        log.debug("Vertex AI Search request built - servingConfig: {}, query: '{}', pageSize: {}",
+                servingConfig, query, pageSize);
+
         List<JobSearchResult> results = new ArrayList<>();
         int resultCount = 0;
 
-        for (SearchResponse.SearchResult result :
-                searchServiceClient.search(request).iterateAll()) {
+        SearchServiceClient.SearchPagedResponse pagedResponse = searchServiceClient.search(request);
+        SearchResponse rawResponse = pagedResponse.getPage().getResponse();
+        log.info("Vertex AI Search raw response - totalSize: {}, attributionToken: {}, correctedQuery: '{}'",
+                rawResponse.getTotalSize(), rawResponse.getAttributionToken(), rawResponse.getCorrectedQuery());
+
+        for (SearchResponse.SearchResult result : pagedResponse.iterateAll()) {
 
             com.google.cloud.discoveryengine.v1.Document doc = result.getDocument();
             // Use fully-qualified com.google.protobuf.Value to avoid naming clash
@@ -202,8 +214,15 @@ public class VertexSearchService {
             results.add(new JobSearchResult(doc.getId(), title, snippet, gcsUri, 0.0));
             resultCount++;
             
-            log.debug("Search result {}: documentId={}, title='{}', gcsUri='{}'", 
-                    resultCount, doc.getId(), title, gcsUri);
+            log.debug("Search result {}: documentId={}, title='{}', gcsUri='{}', structData={}",
+                    resultCount, doc.getId(), title, gcsUri, doc.getStructData());
+        }
+
+        if (results.isEmpty()) {
+            log.warn("Vertex AI Search returned 0 results - query: '{}', servingConfig: {}, "
+                    + "reportedTotalSize: {}. Verify the datastore has indexed documents and that "
+                    + "the query terms match indexed content/structData.",
+                    query, servingConfig, rawResponse.getTotalSize());
         }
 
         log.info("Vertex AI Search completed - returned {} results for query: '{}'", results.size(), query);

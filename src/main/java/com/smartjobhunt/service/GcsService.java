@@ -114,8 +114,9 @@ public class GcsService {
     private String createJsonlMetadata(String documentId, JobMetadata metadata, String pdfGcsUri)
             throws IOException {
         Map<String, Object> jsonlEntry = new HashMap<>();
-        // Use _id (with underscore) for custom schema documents in Vertex AI Search
-        jsonlEntry.put("_id", documentId);
+        // Use "id" for "document" schema imports in Vertex AI Search (content.uri references
+        // the PDF so it is indexed for full-text search alongside the structData metadata).
+        jsonlEntry.put("id", documentId);
         
         // Structured data for search and display
         Map<String, Object> structData = new HashMap<>();
