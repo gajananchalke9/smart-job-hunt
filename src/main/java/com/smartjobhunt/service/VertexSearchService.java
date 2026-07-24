@@ -5,6 +5,7 @@ import com.google.cloud.discoveryengine.v1.DocumentServiceClient;
 import com.google.cloud.discoveryengine.v1.GcsSource;
 import com.google.cloud.discoveryengine.v1.ImportDocumentsRequest;
 import com.google.cloud.discoveryengine.v1.ImportDocumentsResponse;
+import com.google.cloud.discoveryengine.v1.ImportErrorConfig;
 import com.google.cloud.discoveryengine.v1.SearchRequest;
 import com.google.cloud.discoveryengine.v1.SearchResponse;
 import com.google.cloud.discoveryengine.v1.SearchServiceClient;
@@ -105,7 +106,7 @@ public class VertexSearchService {
                 .setParent(branchName)
                 .setGcsSource(gcsSource)
                 .setReconciliationMode(ImportDocumentsRequest.ReconciliationMode.INCREMENTAL)
-                .setErrorConfig(ImportDocumentsRequest.ErrorConfig.newBuilder()
+                .setErrorConfig(ImportErrorConfig.newBuilder()
                         .setGcsPrefix(errorGcsUri)
                         .build())
                 .build();
