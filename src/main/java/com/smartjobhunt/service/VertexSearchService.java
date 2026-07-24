@@ -221,7 +221,9 @@ public class VertexSearchService {
         if (results.isEmpty()) {
             log.warn("Vertex AI Search returned 0 results - query: '{}', servingConfig: {}, "
                     + "reportedTotalSize: {}. Verify the datastore has indexed documents and that "
-                    + "the query terms match indexed content/structData.",
+                    + "the query terms match indexed content/structData. If documents were previously "
+                    + "imported with dataSchema=\"custom\"/field \"_id\", they must be re-uploaded or "
+                    + "re-imported with dataSchema=\"document\" (field \"id\") to become searchable.",
                     query, servingConfig, rawResponse.getTotalSize());
         }
 
