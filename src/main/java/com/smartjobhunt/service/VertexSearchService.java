@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import java.util.regex.Pattern;
 
 /**
  * Wraps calls to Vertex AI Search (Discovery Engine).
@@ -36,8 +37,9 @@ public class VertexSearchService {
 
     private static final Logger log = LoggerFactory.getLogger(VertexSearchService.class);
     
-    /** UUID pattern for detecting UUID-based filenames (8-4-4-4-12 hex digits). */
-    private static final String UUID_PATTERN = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
+    /** Compiled pattern for detecting UUID-based filenames (8-4-4-4-12 hex digits). */
+    private static final Pattern UUID_PATTERN = Pattern.compile(
+            "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
 
     private final SearchServiceClient searchServiceClient;
     private final DocumentServiceClient documentServiceClient;
@@ -234,7 +236,7 @@ public class VertexSearchService {
 
         // Check if filename looks like a UUID (no meaningful title)
         // UUID pattern: 8-4-4-4-12 hex digits with hyphens
-        if (filename.matches(UUID_PATTERN)) {
+        if (UUID_PATTERN.matcher(filename).matches()) {
             log.debug("Filename is a UUID, cannot extract meaningful title: {}", filename);
             return "Untitled Job";
         }
